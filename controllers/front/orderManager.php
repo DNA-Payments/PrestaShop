@@ -83,13 +83,14 @@ class DnapaymentsOrderManagerModuleFrontController extends ModuleFrontController
 
         $input = json_decode(file_get_contents('php://input'), true);
         if(!$input['invoiceId']) throw new Error('Can not find order');
+
         if (!empty($input) && !empty($input['invoiceId']) && $input['success'] && \DNAPayments\DNAPayments::isValidSignature($input, $this->configStore->client_secret)) {
             try {
                 $id_order = (int)$input['invoiceId'];
                 $order = new Order($id_order);
 
                 if(!$this->configStore::isDNAPaymentOrder($order)) {
-                    return;
+                    throw new Error($id_order . ' is not DNA Payments order');
                 }
 
                 // to fix error with localization
@@ -98,27 +99,29 @@ class DnapaymentsOrderManagerModuleFrontController extends ModuleFrontController
                 $state = (int)Configuration::get('PS_OS_PAYMENT');
                 $order->setCurrentState($state);
 
-                $payments = $order->getOrderPaymentCollection();
-                $payment = $payments[0];
-                $payment->transaction_id = $input['id'];
+                $id_order_payment = (int) Db::getInstance()->getValue(
+                    'SELECT `id_order_payment`
+                    FROM `' . _DB_PREFIX_ . 'order_invoice_payment`
+                    WHERE `id_order` =  ' . $order->id
+                );
 
-                if($input['cardPanStarred']) {
-                    $payment->card_number = $input['cardPanStarred'];
+
+                if ($id_order_payment) {
+                    Db::getInstance()->execute(
+                        'UPDATE `'._DB_PREFIX_.'order_payment`
+                        SET `order_reference` = "'.pSQL($order->reference).'",
+                            `transaction_id` = "'.$input['id'].'",
+                            `card_number` = "'.($input['cardPanStarred'] ?? '').'",
+                            `card_expiration` = "'.($input['cardExpiryDate'] ?? '').'",
+                            `card_brand` = "'.($input['cardSchemeName'] ?? '').'"
+                        WHERE  `id_order_payment` = '.$id_order_payment
+                    );
                 }
-
-                if($input['cardExpiryDate']) {
-                    $payment->card_expiration = $input['cardExpiryDate'];
-                }
-
-                if($input['cardSchemeName']) {
-                    $payment->card_brand = $input['cardSchemeName'];
-                }
-
-                $payment->update();
 
                 echo $input['invoiceId'];
                 return;
             } catch (Exception $e) {
+                PrestaShopLogger::addLog($e->getMessage(), 3);
                 throw $e;
             }
             return;
