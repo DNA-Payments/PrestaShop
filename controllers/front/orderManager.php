@@ -96,15 +96,11 @@ class DnapaymentsOrderManagerModuleFrontController extends ModuleFrontController
                 // to fix error with localization
                 Context::getContext()->currency = Context::getContext()->currency ?? new Currency((int)$order->id_currency);
 
-                $state = (int)Configuration::get('PS_OS_PAYMENT');
-                $order->setCurrentState($state);
-
                 $id_order_payment = (int) Db::getInstance()->getValue(
                     'SELECT `id_order_payment`
                     FROM `' . _DB_PREFIX_ . 'order_invoice_payment`
                     WHERE `id_order` =  ' . $order->id
                 );
-
 
                 if ($id_order_payment) {
                     Db::getInstance()->execute(
@@ -117,6 +113,9 @@ class DnapaymentsOrderManagerModuleFrontController extends ModuleFrontController
                         WHERE  `id_order_payment` = '.$id_order_payment
                     );
                 }
+               
+                $state = (int)Configuration::get('PS_OS_PAYMENT');
+                $order->setCurrentState($state);
 
                 echo $input['invoiceId'];
                 return;
