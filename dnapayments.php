@@ -1,6 +1,6 @@
 <?php
 
-error_reporting(E_ALL);
+error_reporting(E_ERROR);
 ini_set('display_errors', 'On');
 
 define('DNA_PAYMENT_METHOD_CODE', 'dnapayments');
