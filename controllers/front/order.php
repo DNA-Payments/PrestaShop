@@ -1,30 +1,13 @@
 <?php
 
-require_once DNA_ROOT_URL.'/vendor/autoload.php';
-require_once DNA_ROOT_URL.'/includes/ConfigStore.php';
-
 class DnapaymentsOrderModuleFrontController extends ModuleFrontController
 {
+    public function getConfigStore() {
+        return $this->module->helper->configStore;
+    }
 
-    /**
-     * @var ConfigStore
-     */
-    private $configStore;
-    /**
-     * @var DNAPayments
-     */
-    private $dnaPayment;
-
-    public function __construct()
-    {
-        $this->configStore = new ConfigStore();
-        $this->dnaPayment = new \DNAPayments\DNAPayments([
-            'isTestMode' => $this->configStore->is_test,
-            'scopes' => [
-                'allowHosted' => true
-            ]
-        ]);
-        parent::__construct();
+    public function getDnaPayment() {
+        return $this->module->helper->dnaPayment;
     }
 
     public function initContent()
@@ -32,12 +15,11 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
     	parent::initContent();
     }
     
-
     private function getAuthData($id, $amount, $currency) {
         return array(
-            'client_id' => $this->configStore->cliend_id,
-            'client_secret' => $this->configStore->client_secret,
-            'terminal' => $this->configStore->terminal_id,
+            'client_id' => $this->getConfigStore()->cliend_id,
+            'client_secret' => $this->getConfigStore()->client_secret,
+            'terminal' => $this->getConfigStore()->terminal_id,
             'invoiceId' => strval($id),
             'amount' => floatval($amount),
             'currency' => $currency
@@ -69,7 +51,6 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
         return $errors;
     }
 
-
     public function displayAjaxCreateOrder()
     {
         $cart = $this->context->cart;
@@ -98,18 +79,38 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
             ));
             return;
         }
-        $order = $this->createOrder($cart);
-        $customer = new Customer($order->id_customer);
-        $address = new Address($order->id_address_delivery);
+
+        $invoiceId = '';
+        $order_id = 0;
+        if (!$this->getConfigStore()->should_create_order_after_payment) {
+            $order = $this->createOrder($cart);
+            $invoiceId = $order->id;
+            $order_id = $order->id;
+        } else {
+            $invoiceId = DNA_ORDER_PREFIX . $cart->id;
+        }
+
+        $customer = new Customer($cart->id_customer);
+        $address = new Address($cart->id_address_delivery);
         $country = new Country($address->id_country);
         $currency = new Currency((int) $cart->id_currency);
 
         try {
-            $auth = $this->dnaPayment->auth(
-                $this->getAuthData($order->id, $cart->getOrderTotal(), $currency->iso_code)
+            $auth = $this->getDnaPayment()->auth(
+                $this->getAuthData($invoiceId, $cart->getOrderTotal(), $currency->iso_code)
             );
 
-
+            $transaction = new DnapaymentsTransaction();
+            $transaction->getDnapaymentsTransactionByCart($cart->id);
+            $transaction->status = Configuration::get('DNA_OS_AWAITING_PAYMENT');
+            $transaction->id_customer = $cart->id_customer;
+            $transaction->id_cart = $cart->id;
+            $transaction->id_order = $order_id;
+            $transaction->dnaOrderId = $invoiceId;
+            $transaction->amount = $cart->getOrderTotal();
+            $transaction->currency = $currency->iso_code;
+            $transaction->save();
+            
             $data = array(
                 'auth' => $auth,
                 'accountId' => $cart->id_customer,
@@ -118,12 +119,17 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
                 'address1' => $address->address1,
                 'city' => $address->city,
                 'country' => $country->iso_code,
+                'phone' => $address->phone || $address->mobile_phone,
                 'email' => $customer->email,
                 'postcode' => $address->postcode,
-                'orderId' => $order->id,
+                'orderId' => $invoiceId,
                 'currency' => $currency->iso_code,
                 'amount' => $cart->getOrderTotal(),
-                'backLink' => Configuration::get('DNA_PAYMENT_BACK_LINK') ? $this->module->getBaseUrl().Configuration::get('DNA_PAYMENT_BACK_LINK') : $this->getOrderConfirmationLink($cart, $order)
+                'description' => Configuration::get('DNA_PAYMENT_GATEWAY_ORDER_DESCRIPTION'),
+                'postLink' => $this->context->link->getModuleLink($this->module->name, 'confirm'),
+                'failurePostLink' => $this->context->link->getModuleLink($this->module->name, 'confirm'),
+                'backLink' => $this->getReturnlink($cart, $order_id, 'success'),
+                'failureBackLink' => $this->getReturnlink($cart, $order_id, 'failed')
             );
             echo json_encode($data);
             return;
@@ -154,15 +160,12 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
         }
     }
 
-    public function getOrderConfirmationLink($cart, $order)
-    {
-        $url = $this->context->link->getPageLink('order-confirmation', true);
-        $url .= '?key=' . $order->secure_key;
-        $url .= '&total=' . $cart->getOrderTotal();
-        $url .= '&id_cart=' . $order->id_cart;
-        $url .= '&id_order=' . $order->id;
-        $url .= '&id_module=' . $this->module->id;
+    public function getReturnlink($cart, $order_id, $status) {
+        $link = $status == 'success' ? $this->module->helper->getBacklink($cart, $order_id) : $this->module->helper->getFailureBackLink();
 
-        return $url;
+        if (!$this->getConfigStore()->should_create_order_after_payment) {
+            return $link;
+        }
+        return $this->context->link->getModuleLink($this->module->name, 'return', array('id_cart' => $cart->id, 'status' => $status));
     }
 }

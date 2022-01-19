@@ -6,6 +6,12 @@ ini_set('display_errors', 'On');
 define('DNA_PAYMENT_METHOD_CODE', 'dnapayments');
 define('DNA_ROOT_URL', dirname(__FILE__));
 define('DNA_VERSION', '1.0.0');
+define('DNA_ORDER_PREFIX', 'PS_');
+
+require_once DNA_ROOT_URL.'/vendor/autoload.php';
+require_once DNA_ROOT_URL.'/includes/ConfigStore.php';
+require_once DNA_ROOT_URL.'/classes/DnapaymentsTransaction.php';
+require_once DNA_ROOT_URL.'/classes/DnapaymentsHelper.php';
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -13,20 +19,21 @@ if (!defined('_PS_VERSION_')) {
 
 class Dnapayments extends PaymentModule
 {
-    public $address;
-    public $extra_mail_vars;
-    public $context;
     public $moduleConfigs = array();
+
+    /** @var DnapaymentsHelper */
+    public $helper;
 
     public function __construct()
     {
+        $this->helper = DnapaymentsHelper::getInstance($this);
         $this->loadFiles();
         $this->name = DNA_PAYMENT_METHOD_CODE;
         $this->tab = 'payments_gateways';
         $this->version = DNA_VERSION;
         $this->ps_versions_compliancy = array('min' => '1.6', 'max' => _PS_VERSION_);
         $this->author = 'DNA Payments';
-        $this->controllers = array( 'order', 'orderManager', 'orderFailureResult');
+        $this->controllers = array( 'order', 'confirm', 'orderFailureResult');
         $this->need_instance = 1;
         $this->currencies = true;
         $this->currencies_mode = 'checkbox';
@@ -53,6 +60,8 @@ class Dnapayments extends PaymentModule
             'DNA_MERCHANT_TEST_CLIENT_ID' => '',
             'DNA_MERCHANT_TEST_CLIENT_SECRET' => '',
             'DNA_MERCHANT_TEST_TERMINAL_ID' => '',
+            'DNA_PAYMENT_CREATE_ORDER_AFTER_PAYMENT' => 1,
+            'DNA_PAYMENT_INTEGRATION_TYPE' => 'hosted',
             'DNA_PAYMENT_BACK_LINK' => '',
             'DNA_PAYMENT_FAILURE_BACK_LINK' => '',
             'DNA_PAYMENT_GATEWAY_ORDER_DESCRIPTION' => 'Pay with your credit card via our payment gateway'
@@ -95,7 +104,8 @@ class Dnapayments extends PaymentModule
      */
     public $hooks = array(
         'paymentOptions',
-        'actionEmailSendBefore'
+        'actionEmailSendBefore',
+        'displayAdminOrderMainBottom'
     );
 
 
@@ -168,7 +178,22 @@ class Dnapayments extends PaymentModule
             }
         }
 
-        return true;
+        $sql = "CREATE TABLE IF NOT EXISTS `"._DB_PREFIX_."dnapayments_transactions` (
+            `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+            `status` int(2) NOT NULL,
+            `id_customer` int(11) NOT NULL,
+            `id_cart` int(11) NOT NULL,
+            `dnaOrderId` varchar(100) NOT NULL,
+            `id_order` int(11) NOT NULL,
+            `id_transaction` varchar(100) NOT NULL,
+            `amount` float NOT NULL,
+            `currency` varchar(8) NOT NULL,
+            `date_add` DATETIME NOT NULL,
+            `date_upd` DATETIME NOT NULL,
+            PRIMARY KEY (`id`)
+        ) ENGINE="._MYSQL_ENGINE_." DEFAULT CHARSET=utf8;";
+
+        return Db::getInstance()->execute($sql);
     }
 
     public function uninstall()
@@ -184,6 +209,7 @@ class Dnapayments extends PaymentModule
         }
 
         return true;
+        // return Db::getInstance()->execute('DROP TABLE IF EXISTS `'._DB_PREFIX_.'dnapayments_transactions`');
     }
 
     public function hookActionEmailSendBefore($params) {
@@ -231,7 +257,6 @@ class Dnapayments extends PaymentModule
 
     public function getRedirectPaymentOption()
     {
-
         $externalOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $this->context->smarty->assign(array(
             'description' => Configuration::get('DNA_PAYMENT_DESCRIPTION')
@@ -251,14 +276,7 @@ class Dnapayments extends PaymentModule
             'terminal_id' => Configuration::get('DNA_MERCHANT_TERMINAL_ID'),
             'test_mode' => (boolean)Configuration::get('DNA_PAYMENT_TEST_MODE'),
             'test_terminal_id' => Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID'),
-            'gateway_order_description' => Configuration::get('DNA_PAYMENT_GATEWAY_ORDER_DESCRIPTION'),
-            'postLink' => $this->context->link->getModuleLink($this->name, 'orderManager', array(
-                    'action' => 'confirmOrder'
-            )),
-            'failurePostLink' => $this->context->link->getModuleLink($this->name, 'orderManager', array(
-                'action' => 'cancelOrder'
-            )),
-            'failureBackLink' => Configuration::get('DNA_PAYMENT_FAILURE_BACK_LINK') ? $this->getBaseUrl().Configuration::get('DNA_PAYMENT_FAILURE_BACK_LINK') : $this->context->link->getModuleLink($this->name, 'orderFailureResult')
+            'integration_type' => Configuration::get('DNA_PAYMENT_INTEGRATION_TYPE')
         ));
 
         return $this->context->smarty->fetch( DNA_ROOT_URL.'/views/templates/front/payment_form.tpl');
@@ -266,5 +284,27 @@ class Dnapayments extends PaymentModule
 
     public function getBaseUrl() {
         return _PS_BASE_URL_.__PS_BASE_URI__;
+    }
+
+    /** Display last order information on Admin > Orders > Order */
+    public function hookDisplayAdminOrderMainBottom($params)
+    {
+        $id_order = (int)$params['id_order'];
+
+        $data = Db::getInstance()->getRow('SELECT * FROM `'._DB_PREFIX_.'dnapayments_transactions`
+        WHERE `id_cart` = (SELECT `id_cart` FROM `'._DB_PREFIX_.'orders` WHERE `id_order` = "'.$id_order.'")');
+        if (!$data) {
+            return false;
+        } else {
+            /** Link the info to query */
+            return $this->buildOrderMessage($data);
+        }
+    }
+
+    /** Load template with assigned data */
+    public function buildOrderMessage($data)
+    {
+        $this->context->smarty->assign('data', $data);
+        return $this->display(__FILE__, 'views/templates/admin/payment_message.tpl');
     }
 }

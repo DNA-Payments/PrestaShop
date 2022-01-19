@@ -19,6 +19,8 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             'dna_merchant_test_client_id',
             'dna_merchant_test_client_secret',
             'dna_merchant_test_terminal_id',
+            'dna_payment_create_order_after_payment',
+            'dna_payment_integration_type',
             'dna_payment_back_link',
             'dna_payment_failure_back_link',
             'dna_payment_gateway_order_description'
@@ -61,6 +63,8 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             'dna_merchant_test_client_id' => Configuration::get('DNA_MERCHANT_TEST_CLIENT_ID'),
             'dna_merchant_test_client_secret' => Configuration::get('DNA_MERCHANT_TEST_CLIENT_SECRET'),
             'dna_merchant_test_terminal_id' => Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID'),
+            'dna_payment_create_order_after_payment' => (boolean)Configuration::get('DNA_PAYMENT_CREATE_ORDER_AFTER_PAYMENT'),
+            'dna_payment_integration_type' => Configuration::get('DNA_PAYMENT_INTEGRATION_TYPE'),
             'dna_payment_back_link' => Configuration::get('DNA_PAYMENT_BACK_LINK'),
             'dna_payment_failure_back_link' => Configuration::get('DNA_PAYMENT_FAILURE_BACK_LINK'),
             'dna_payment_gateway_order_description' => Configuration::get('DNA_PAYMENT_GATEWAY_ORDER_DESCRIPTION'),
@@ -170,12 +174,44 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             ),
             array(
                 'col' => 6,
+                'type' => 'switch',
+                'name' => 'dna_payment_create_order_after_payment',
+                'label' => $this->module->l('Create an order after payment'),
+                'desc' => $this->module->l('Creates an order only after successful / unsuccessful payment'),
+                'required' => false,
+                'values' => array(
+                    array(
+                        'value' => true,
+                        'label' => $this->module->l('Yes')
+                    ),
+                    array(
+                        'value' => false,
+                        'label' => $this->module->l('No')
+                    )
+                )
+            ),
+            array(
+                'col' => 6,
+                'type' => 'select',
+                'name' => 'dna_payment_integration_type',
+                'label' => $this->module->l('Payment form integration type'),
+                'required' => false,
+                'options' => array(
+                    'id' => 'value',
+                    'name' => 'label',
+                    'query' => [
+                        [ 'value' => 'hosted', 'label' => $this->module->l('Full Redirect') ],
+                        [ 'value' => 'embedded', 'label' => $this->module->l('iFrame LightBox') ]
+                    ]
+                )
+            ),
+            array(
+                'col' => 6,
                 'type' => 'text',
                 'desc' => 'URL for success page.',
                 'name' => 'dna_payment_back_link',
                 'label' => $this->module->l('Back Link'),
                 'required' => false
-
             ),
             array(
                 'col' => 6,

@@ -29,7 +29,12 @@
                             if(orderInfo.errors) {
                                 return showCustomError(orderInfo.errors)
                             }
-                            window.DNAPayments.openPaymentPage(getPaymentData(orderInfo));
+                            const paymentData = getPaymentData(orderInfo);
+                            if (`{$integration_type}` == 'embedded') {
+                                window.DNAPayments.openPaymentIframeWidget(paymentData);
+                            } else {
+                                window.DNAPayments.openPaymentPage(paymentData);
+                            }
                         } catch (e) {
                             return showCustomError('System error! Please try later')
                         }
@@ -42,11 +47,11 @@
 
             const getPaymentData = (orderInfo) => ({
                 backLink: orderInfo.backLink,
-                failureBackLink: `{$failureBackLink}`,
-                postLink: `{$postLink}`,
-                failurePostLink: `{$failurePostLink}`,
+                failureBackLink: orderInfo.failureBackLink,
+                postLink: orderInfo.postLink,
+                failurePostLink: orderInfo.failurePostLink,
                 language: 'eng',
-                description: `{$gateway_order_description}`,
+                description: orderInfo.description,
                 accountId: orderInfo.accountId ? orderInfo.accountId : '',
                 accountCountry: orderInfo.country,
                 accountCity: orderInfo.city,
