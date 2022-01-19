@@ -19,7 +19,7 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             'dna_merchant_test_client_id',
             'dna_merchant_test_client_secret',
             'dna_merchant_test_terminal_id',
-            'dna_payment_create_order_after_payment',
+            'dna_payment_create_order_after_successful_payment',
             'dna_payment_integration_type',
             'dna_payment_back_link',
             'dna_payment_failure_back_link',
@@ -63,7 +63,7 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             'dna_merchant_test_client_id' => Configuration::get('DNA_MERCHANT_TEST_CLIENT_ID'),
             'dna_merchant_test_client_secret' => Configuration::get('DNA_MERCHANT_TEST_CLIENT_SECRET'),
             'dna_merchant_test_terminal_id' => Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID'),
-            'dna_payment_create_order_after_payment' => (boolean)Configuration::get('DNA_PAYMENT_CREATE_ORDER_AFTER_PAYMENT'),
+            'dna_payment_create_order_after_successful_payment' => (boolean)Configuration::get('DNA_PAYMENT_CREATE_ORDER_AFTER_SUCCESSFUL_PAYMENT'),
             'dna_payment_integration_type' => Configuration::get('DNA_PAYMENT_INTEGRATION_TYPE'),
             'dna_payment_back_link' => Configuration::get('DNA_PAYMENT_BACK_LINK'),
             'dna_payment_failure_back_link' => Configuration::get('DNA_PAYMENT_FAILURE_BACK_LINK'),
@@ -175,9 +175,12 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             array(
                 'col' => 6,
                 'type' => 'switch',
-                'name' => 'dna_payment_create_order_after_payment',
-                'label' => $this->module->l('Create an order after payment'),
-                'desc' => $this->module->l('Creates an order only after successful / unsuccessful payment'),
+                'name' => 'dna_payment_create_order_after_successful_payment',
+                'label' => $this->module->l('Create an order only after a successful payment'),
+                'desc' =>
+                    $this->module->l('Selecting “Yes” ensures that an order is created and the shopping cart is emptied ONLY after the payment has been successfully processed.') .
+                    '<br/><br/>' .
+                    $this->module->l('Selecting “No” ensures that an order is created and the shopping cart is emptied after the payment has been processed with ANY status.'),
                 'required' => false,
                 'values' => array(
                     array(

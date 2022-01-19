@@ -60,7 +60,7 @@ class Dnapayments extends PaymentModule
             'DNA_MERCHANT_TEST_CLIENT_ID' => '',
             'DNA_MERCHANT_TEST_CLIENT_SECRET' => '',
             'DNA_MERCHANT_TEST_TERMINAL_ID' => '',
-            'DNA_PAYMENT_CREATE_ORDER_AFTER_PAYMENT' => 1,
+            'DNA_PAYMENT_CREATE_ORDER_AFTER_SUCCESSFUL_PAYMENT' => 1,
             'DNA_PAYMENT_INTEGRATION_TYPE' => 'hosted',
             'DNA_PAYMENT_BACK_LINK' => '',
             'DNA_PAYMENT_FAILURE_BACK_LINK' => '',
