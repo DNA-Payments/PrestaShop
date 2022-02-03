@@ -1,0 +1,41 @@
+<?php return array(
+    'root' => array(
+        'pretty_version' => '1.2.0',
+        'version' => '1.2.0.0',
+        'type' => 'prestashop-module',
+        'install_path' => __DIR__ . '/../../',
+        'aliases' => array(),
+        'reference' => NULL,
+        'name' => 'dna/prestoshop',
+        'dev' => true,
+    ),
+    'versions' => array(
+        'dna/dnapayments-sdk-php' => array(
+            'pretty_version' => '1.1.3',
+            'version' => '1.1.3.0',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../dna/dnapayments-sdk-php',
+            'aliases' => array(),
+            'reference' => 'b399060498aa79301775f0e341a44749452fb853',
+            'dev_requirement' => false,
+        ),
+        'dna/prestoshop' => array(
+            'pretty_version' => '1.2.0',
+            'version' => '1.2.0.0',
+            'type' => 'prestashop-module',
+            'install_path' => __DIR__ . '/../../',
+            'aliases' => array(),
+            'reference' => NULL,
+            'dev_requirement' => false,
+        ),
+        'rmccue/requests' => array(
+            'pretty_version' => 'v1.8.1',
+            'version' => '1.8.1.0',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../rmccue/requests',
+            'aliases' => array(),
+            'reference' => '82e6936366eac3af4d836c18b9d8c31028fe4cd5',
+            'dev_requirement' => false,
+        ),
+    ),
+);
