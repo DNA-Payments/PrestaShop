@@ -15,17 +15,6 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
     	parent::initContent();
     }
     
-    private function getAuthData($id, $amount, $currency) {
-        return array(
-            'client_id' => $this->getConfigStore()->cliend_id,
-            'client_secret' => $this->getConfigStore()->client_secret,
-            'terminal' => $this->getConfigStore()->terminal_id,
-            'invoiceId' => strval($id),
-            'amount' => floatval($amount),
-            'currency' => $currency
-        );
-    }
-
     public function validateOrderFields($cart) {
         $errors = [];
         $customer = new Customer($cart->id_customer);
@@ -97,7 +86,7 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
 
         try {
             $auth = $this->getDnaPayment()->auth(
-                $this->getAuthData($invoiceId, $cart->getOrderTotal(), $currency->iso_code)
+                $this->module->helper->getAuthData($invoiceId, $cart->getOrderTotal(), $currency->iso_code)
             );
 
             $transaction = new DnapaymentsTransaction();
@@ -119,7 +108,7 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
                 'address1' => $address->address1,
                 'city' => $address->city,
                 'country' => $country->iso_code,
-                'phone' => $address->phone || $address->mobile_phone,
+                'phone' => $address->phone ? $address->phone : $address->phone_mobile,
                 'email' => $customer->email,
                 'postcode' => $address->postcode,
                 'orderId' => $invoiceId,

@@ -113,33 +113,43 @@ abstract class AbstactInstaller {
      */
     public function installOrderState()
     {
-        if (!Configuration::get('DNA_OS_AWAITING_PAYMENT')
-            || !Validate::isLoadedObject(new OrderState(Configuration::get('DNA_OS_AWAITING_PAYMENT')))) {
-            $order_state = new OrderState();
-            $order_state->name = array();
-            foreach (Language::getLanguages() as $language) {
-                $order_state->name[$language['id_lang']] = 'Awaiting payment by DNA Payments';
-            }
-            $order_state->send_email = false;
-            $order_state->color = '#fffb96';
-            $order_state->hidden = false;
-            $order_state->delivery = false;
-            $order_state->logable = false;
-            $order_state->invoice = false;
-            $order_state->module_name = $this->module->name;
-            if ($order_state->add()) {
-                $source = _PS_MODULE_DIR_ . 'dnapayments/views/img/os/logo_os.png';
-                $destination = _PS_ROOT_DIR_ . '/img/os/' . (int)$order_state->id . '.gif';
-                copy($source, $destination);
-            }
+        $dna_statuses = [
+            'DNA_OS_AWAITING_PAYMENT' => 'Awaiting payment',
+            'DNA_OS_WAITING_CAPTURE' => 'Waiting to be captured'
+        ];
 
-            if (Shop::isFeatureActive()) {
-                $shops = Shop::getShops();
-                foreach ($shops as $shop) {
-                    Configuration::updateValue('DNA_OS_AWAITING_PAYMENT', (int) $order_state->id, false, null, (int)$shop['id_shop']);
+        foreach ($dna_statuses as $key => $title) {
+            $config = Configuration::get($key);
+            $existingState = new OrderState($config);
+
+            if (!$config && !Validate::isLoadedObject($existingState)) {
+                $order_state = new OrderState();
+                $order_state->name = array();
+                foreach (Language::getLanguages() as $language) {
+                    $order_state->name[$language['id_lang']] = $title;
                 }
-            } else {
-                Configuration::updateValue('DNA_OS_AWAITING_PAYMENT', (int) $order_state->id);
+                $order_state->send_email = false;
+                $order_state->color = '#fffb96';
+                $order_state->hidden = false;
+                $order_state->delivery = false;
+                $order_state->logable = false;
+                $order_state->invoice = false;
+                $order_state->module_name = $this->module->name;
+                $order_state->add();
+
+                if (Shop::isFeatureActive()) {
+                    $shops = Shop::getShops();
+                    foreach ($shops as $shop) {
+                        Configuration::updateValue($key, (int) $order_state->id, false, null, (int)$shop['id_shop']);
+                    }
+                } else {
+                    Configuration::updateValue($key, (int) $order_state->id);
+                }
+            } else if ($config && Validate::isLoadedObject($existingState)){
+                foreach (Language::getLanguages() as $language) {
+                    $existingState->name[$language['id_lang']] = $title;
+                }
+                $existingState->save();
             }
         }
 

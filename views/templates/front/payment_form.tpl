@@ -30,6 +30,9 @@
                                 return showCustomError(orderInfo.errors)
                             }
                             const paymentData = getPaymentData(orderInfo);
+                            if (`{$transaction_type}` !== 'default') {
+                                paymentData.transactionType = `{$transaction_type}`;
+                            }
                             if (`{$integration_type}` == 'embedded') {
                                 window.DNAPayments.openPaymentIframeWidget(paymentData);
                             } else {
@@ -64,7 +67,6 @@
                 terminal: getTerminalId(),
                 amount: orderInfo.amount.toString(),
                 currency: orderInfo.currency.toString(),
-                transactionType: 'SALE',
                 auth: orderInfo.auth
             });
 

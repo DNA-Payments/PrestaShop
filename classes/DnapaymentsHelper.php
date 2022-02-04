@@ -48,7 +48,22 @@ class DnapaymentsHelper {
             throw new Error('Order data is not valid');
         }
 
-        return $input['success'] ? Configuration::get('PS_OS_PAYMENT') : Configuration::get('PS_OS_ERROR');
+        if (!$input['success']) {
+            return Configuration::get('PS_OS_ERROR');
+        }
+
+        return $input['settled'] ? Configuration::get('PS_OS_PAYMENT') : Configuration::get('DNA_OS_WAITING_CAPTURE');
+    }
+
+    public function getAuthData($id_order, $amount, $currency) {
+        return array(
+            'client_id' => $this->configStore->client_id,
+            'client_secret' => $this->configStore->client_secret,
+            'terminal' => $this->configStore->terminal_id,
+            'invoiceId' => strval($id_order),
+            'amount' => floatval($amount),
+            'currency' => $currency
+        );
     }
 
     public function createOrder($input, $status_id) {

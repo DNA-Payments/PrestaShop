@@ -9,7 +9,7 @@ class ConfigStore {
     /**
      * @var string
      */
-    public $cliend_id;
+    public $client_id;
     /**
      * @var string
      */
@@ -30,7 +30,7 @@ class ConfigStore {
     public function __construct()
     {
         $this->is_test = (boolean)Configuration::get('DNA_PAYMENT_TEST_MODE');
-        $this->cliend_id = $this->is_test ? Configuration::get('DNA_MERCHANT_TEST_CLIENT_ID') : Configuration::get('DNA_MERCHANT_CLIENT_ID');
+        $this->client_id = $this->is_test ? Configuration::get('DNA_MERCHANT_TEST_CLIENT_ID') : Configuration::get('DNA_MERCHANT_CLIENT_ID');
         $this->client_secret = $this->is_test ? Configuration::get('DNA_MERCHANT_TEST_CLIENT_SECRET') : Configuration::get('DNA_MERCHANT_CLIENT_SECRET');
         $this->terminal_id = $this->is_test ? Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID') : Configuration::get('DNA_MERCHANT_TERMINAL_ID');
         $this->should_create_order_after_only_successful_payment = Configuration::get('DNA_PAYMENT_CREATE_ORDER_AFTER_SUCCESSFUL_PAYMENT');

@@ -61,6 +61,7 @@ class Dnapayments extends PaymentModule
             'DNA_MERCHANT_TEST_CLIENT_SECRET' => '',
             'DNA_MERCHANT_TEST_TERMINAL_ID' => '',
             'DNA_PAYMENT_CREATE_ORDER_AFTER_SUCCESSFUL_PAYMENT' => 1,
+            'DNA_PAYMENT_TRANSACTION_TYPE' => 'default',
             'DNA_PAYMENT_INTEGRATION_TYPE' => 'hosted',
             'DNA_PAYMENT_BACK_LINK' => '',
             'DNA_PAYMENT_FAILURE_BACK_LINK' => '',
@@ -105,6 +106,7 @@ class Dnapayments extends PaymentModule
     public $hooks = array(
         'paymentOptions',
         'actionEmailSendBefore',
+        'actionOrderStatusUpdate',
         'displayAdminOrderMainBottom'
     );
 
@@ -276,6 +278,7 @@ class Dnapayments extends PaymentModule
             'terminal_id' => Configuration::get('DNA_MERCHANT_TERMINAL_ID'),
             'test_mode' => (boolean)Configuration::get('DNA_PAYMENT_TEST_MODE'),
             'test_terminal_id' => Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID'),
+            'transaction_type' => Configuration::get('DNA_PAYMENT_TRANSACTION_TYPE'),
             'integration_type' => Configuration::get('DNA_PAYMENT_INTEGRATION_TYPE')
         ));
 
@@ -298,6 +301,68 @@ class Dnapayments extends PaymentModule
         } else {
             /** Link the info to query */
             return $this->buildOrderMessage($data);
+        }
+    }
+
+    /** Hook for order status update action */
+    public function hookActionOrderStatusUpdate($params)
+    {
+        $status = $params['newOrderStatus'] ? (int)$params['newOrderStatus']->id : false;
+        $order_id = $params['id_order'];
+
+        $transaction = new DnapaymentsTransaction();
+        $transaction->getDnapaymentsTransactionByOrderId($order_id);
+
+        $order = new Order($order_id);
+        $dnaPayment = $this->helper->dnaPayment;
+        $configStore = $this->helper->configStore;
+
+        if (
+            !$status ||
+            !$transaction->isExists() ||
+            !Validate::isLoadedObject($order) ||
+            !$configStore::isDNAPaymentOrder($order)
+        ) {
+            return;
+        }
+        
+        $data = [
+            'client_id' => $configStore->client_id,
+            'client_secret' => $configStore->client_secret,
+            'terminal' => $configStore->terminal_id,
+            'invoiceId' => strval($transaction->dnaOrderId),
+            'amount' => $transaction->amount,
+            'currency' => $transaction->currency,
+            'transaction_id' => $transaction->id_transaction
+        ];
+
+        $result = null;
+        switch ($status) {
+            case (int)Configuration::get('PS_OS_PAYMENT'):
+                if ($transaction->status == (int)Configuration::get('DNA_OS_WAITING_CAPTURE')) {
+                    try {
+                        $result = $dnaPayment->charge($data);
+                    } catch (Exception $e) {
+                        PrestaShopLogger::addLog($e->getMessage(), 3);
+                    }
+                }
+                break;
+            case (int)Configuration::get('PS_OS_REFUND'):
+                if ($transaction->status == (int)Configuration::get('PS_OS_PAYMENT')) {
+                    $result = $dnaPayment->refund($data);
+                }
+                break;
+            case (int)Configuration::get('PS_OS_CANCELED'):
+                if ($transaction->status == (int)Configuration::get('DNA_OS_AWAITING_PAYMENT')) {
+                    $result = $this->dnaPayment->cancel($data);
+                }
+                break;
+        }
+
+        if (!empty($result) && $result['success']) {
+            $transaction->status = $status;
+            $transaction->id_transaction = $result['id'];
+            $transaction->save();
         }
     }
 

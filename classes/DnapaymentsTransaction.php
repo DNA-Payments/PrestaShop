@@ -62,39 +62,36 @@ class DnapaymentsTransaction extends ObjectModel {
     ];
 
     public function isExists() {
-        return !empty($this->id) && !empty($this->id_transaction);
+        return !empty($this->id);
     }
 
     public function isCompleted() {
         return $this->status == (int)Configuration::get('PS_OS_PAYMENT') ||
+            $this->status == (int)Configuration::get('DNA_OS_WAITING_CAPTURE') ||
             $this->status == (int)Configuration::get('PS_OS_ERROR');
     }
 
     public function getDnapaymentsTransactionByCart($id_cart)
     {
-        $query = new DbQuery();
+        return $this->getRow('id_cart', $id_cart);
+    }
 
-        $query->select('*')
-            ->from($this->table)
-            ->where('id_cart = ' . (int)$id_cart);
-
-        $result = Db::getInstance()->getRow($query->build());
-        if ($result == false) {
-            return $this;
-        }
-
-        $this->hydrate($result);
-
-        return $this;
+    public function getDnapaymentsTransactionByOrderId($id_order)
+    {
+        return $this->getRow('id_order', $id_order);
     }
 
     public function getDnapaymentsTransactionByDnaOrderId($dnaOrderId)
     {
+        return $this->getRow('dnaOrderId', $dnaOrderId);
+    }
+
+    protected function getRow($key, $value) {
         $query = new DbQuery();
 
         $query->select('*')
             ->from($this->table)
-            ->where('dnaOrderId = "' . $dnaOrderId . '"');
+            ->where($key . ' = "' . $value . '"');
 
         $result = Db::getInstance()->getRow($query->build());
 

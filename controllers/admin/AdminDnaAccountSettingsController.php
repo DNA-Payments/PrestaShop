@@ -20,6 +20,7 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             'dna_merchant_test_client_secret',
             'dna_merchant_test_terminal_id',
             'dna_payment_create_order_after_successful_payment',
+            'dna_payment_transaction_type',
             'dna_payment_integration_type',
             'dna_payment_back_link',
             'dna_payment_failure_back_link',
@@ -64,6 +65,7 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             'dna_merchant_test_client_secret' => Configuration::get('DNA_MERCHANT_TEST_CLIENT_SECRET'),
             'dna_merchant_test_terminal_id' => Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID'),
             'dna_payment_create_order_after_successful_payment' => (boolean)Configuration::get('DNA_PAYMENT_CREATE_ORDER_AFTER_SUCCESSFUL_PAYMENT'),
+            'dna_payment_transaction_type' => Configuration::get('DNA_PAYMENT_TRANSACTION_TYPE'),
             'dna_payment_integration_type' => Configuration::get('DNA_PAYMENT_INTEGRATION_TYPE'),
             'dna_payment_back_link' => Configuration::get('DNA_PAYMENT_BACK_LINK'),
             'dna_payment_failure_back_link' => Configuration::get('DNA_PAYMENT_FAILURE_BACK_LINK'),
@@ -191,6 +193,22 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
                         'value' => false,
                         'label' => $this->module->l('No')
                     )
+                )
+            ),
+            array(
+                'col' => 6,
+                'type' => 'select',
+                'name' => 'dna_payment_transaction_type',
+                'label' => $this->module->l('Payment transaction type'),
+                'required' => false,
+                'options' => array(
+                    'id' => 'value',
+                    'name' => 'label',
+                    'query' => [
+                        [ 'value' => 'default', 'label' => $this->module->l('Default') ],
+                        [ 'value' => 'sale', 'label' => $this->module->l('Sale') ],
+                        [ 'value' => 'auth', 'label' => $this->module->l('Authorisation') ]
+                    ]
                 )
             ),
             array(
