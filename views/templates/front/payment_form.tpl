@@ -49,25 +49,8 @@
             });
 
             const getPaymentData = (orderInfo) => ({
-                backLink: orderInfo.backLink,
-                failureBackLink: orderInfo.failureBackLink,
-                postLink: orderInfo.postLink,
-                failurePostLink: orderInfo.failurePostLink,
-                language: 'eng',
-                description: orderInfo.description,
-                accountId: orderInfo.accountId ? orderInfo.accountId : '',
-                accountCountry: orderInfo.country,
-                accountCity: orderInfo.city,
-                accountStreet1: orderInfo.address1,
-                accountEmail: orderInfo.email,
-                accountFirstName: orderInfo.firstname,
-                accountLastName: orderInfo.lastname,
-                accountPostalCode: orderInfo.postcode,
-                invoiceId:  orderInfo.orderId.toString(),
                 terminal: getTerminalId(),
-                amount: orderInfo.amount.toString(),
-                currency: orderInfo.currency.toString(),
-                auth: orderInfo.auth
+                ...orderInfo
             });
 
             function isTestMode() {

@@ -80,8 +80,9 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
         }
 
         $customer = new Customer($cart->id_customer);
-        $address = new Address($cart->id_address_delivery);
-        $country = new Country($address->id_country);
+        $billingAddress = new Address($cart->id_address_delivery);
+        $shippingAddress = new Address($cart->id_address_invoice);
+        $country = new Country($billingAddress->id_country);
         $currency = new Currency((int) $cart->id_currency);
 
         try {
@@ -102,18 +103,22 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
             
             $data = array(
                 'auth' => $auth,
-                'accountId' => $cart->id_customer,
-                'firstname' => $address->firstname,
-                'lastname' => $address->lastname,
-                'address1' => $address->address1,
-                'city' => $address->city,
-                'country' => $country->iso_code,
-                'phone' => $address->phone ? $address->phone : $address->phone_mobile,
-                'email' => $customer->email,
-                'postcode' => $address->postcode,
-                'orderId' => $invoiceId,
+                'accountId' => $cart->id_customer ? $cart->id_customer : '',
+                'accountFirstName' => $billingAddress->firstname,
+                'accountLastName' => $billingAddress->lastname,
+                'accountCountry' => $country->iso_code,
+                'accountCity' => $billingAddress->city,
+                'accountStreet1' => $billingAddress->address1,
+                'accountPostalCode' => $billingAddress->postcode,
+                'accountEmail' => $customer->email,
+                'phone' => $billingAddress->phone ? $billingAddress->phone : $billingAddress->phone_mobile,
+                'invoiceId' => $invoiceId,
                 'currency' => $currency->iso_code,
                 'amount' => $cart->getOrderTotal(),
+                'shippingAddress' => $this->getAddress($shippingAddress),
+                'amountBreakdown' => $this->getAmountBreakDown($cart),
+                'orderLines' => $this->getOrderLines($cart),
+                'language' => 'en-gb',
                 'description' => Configuration::get('DNA_PAYMENT_GATEWAY_ORDER_DESCRIPTION'),
                 'postLink' => $this->context->link->getModuleLink($this->module->name, 'confirm'),
                 'failurePostLink' => $this->context->link->getModuleLink($this->module->name, 'confirm'),
@@ -132,6 +137,64 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
             ));
             return;
         }
+    }
+
+    public function getAmountBreakDown(Cart $cart)
+    {
+        $productTotal = round((float)$cart->getOrderTotal(false, Cart::ONLY_PRODUCTS), 2);
+        $shippingTotal = round((float)$cart->getOrderTotal(true, Cart::ONLY_SHIPPING), 2);
+        $discountTotal = round((float)abs($cart->getOrderTotal(true, Cart::ONLY_DISCOUNTS)), 2);
+
+        $productTotalWithTax = round((float)$cart->getOrderTotal(true, Cart::ONLY_PRODUCTS), 2);
+        $taxTotal = round($productTotalWithTax - $productTotal, 2);
+
+        return [
+            'itemTotal' => ['totalAmount' => $productTotal],
+            'shipping' => ['totalAmount' => $shippingTotal],
+            'taxTotal' => ['totalAmount' => $taxTotal],
+            'discount' => ['totalAmount' => $discountTotal]
+        ];
+    }
+
+    public function getOrderLines(Cart $cart)
+    {
+        $products = $cart->getProducts();
+        $link = Context::getContext()->link;
+        $orderLines = [];
+
+        foreach ($products as $product) {
+
+            $imageUrl = $link->getImageLink(
+                isset($product['link_rewrite']) ? $product['link_rewrite'] : $product['name'],
+                (int)$product['id_image'], 'medium_default'
+            );
+
+            $orderLines[] = [
+                'reference' => $product['id_product'],
+                'name' => $product['name'],
+                'quantity' => $product['quantity'],
+                'unitPrice' => $product['price_wt'],
+                'imageUrl' => $imageUrl,
+                'productUrl' => $link->getProductLink($product),
+                'totalAmount' => $product['total_wt']
+            ];
+        }
+
+        return $orderLines;
+    }
+
+    public function getAddress($address) {
+        $country = new Country($address->id_country);
+        return array(
+            'firstName' => $address->firstname,
+            'lastName'  => $address->lastname,
+            'streetAddress1'  => $address->address1,
+            'streetAddress2'  => $address->address2,
+            'city'       => $address->city,
+            'postalCode'   => $address->postcode,
+            'phone'      => $address->phone ? $address->phone : $address->phone_mobile,
+            'country'    => $country->iso_code
+        );
     }
 
     public function createOrder($cart)
