@@ -353,7 +353,7 @@ class Dnapayments extends PaymentModule
                 }
                 break;
             case (int)Configuration::get('PS_OS_CANCELED'):
-                if ($transaction->status == (int)Configuration::get('DNA_OS_AWAITING_PAYMENT')) {
+                if ($transaction->status == (int)Configuration::get('DNA_OS_WAITING_CAPTURE')) {
                     $result = $this->dnaPayment->cancel($data);
                 }
                 break;
