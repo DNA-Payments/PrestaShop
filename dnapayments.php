@@ -180,13 +180,20 @@ class Dnapayments extends PaymentModule
             }
         }
 
-        $sql = "CREATE TABLE IF NOT EXISTS `"._DB_PREFIX_."dnapayments_transactions` (
+        $table_name = _DB_PREFIX_."dnapayments_transactions";
+
+        $createSql = "CREATE TABLE IF NOT EXISTS `".$table_name."` (
             `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
             `status` int(2) NOT NULL,
             `id_customer` int(11) NOT NULL,
             `id_cart` int(11) NOT NULL,
             `dnaOrderId` varchar(100) NOT NULL,
             `id_order` int(11) NOT NULL,
+            `rrn` varchar(50) NOT NULL,
+            `paypal_status` varchar(50) NOT NULL,
+            `paypal_capture_status` varchar(50) NOT NULL,
+            `paypal_capture_status_reason` varchar(255) NOT NULL,
+            `payment_method` varchar(50) NOT NULL,
             `id_transaction` varchar(100) NOT NULL,
             `amount` float NOT NULL,
             `currency` varchar(8) NOT NULL,
@@ -195,7 +202,28 @@ class Dnapayments extends PaymentModule
             PRIMARY KEY (`id`)
         ) ENGINE="._MYSQL_ENGINE_." DEFAULT CHARSET=utf8;";
 
-        return Db::getInstance()->execute($sql);
+        if (!Db::getInstance()->execute($createSql)) {
+            return false;
+        }
+
+        $checkSql = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE table_name = '".$table_name."' AND column_name = 'paypal_status';";
+        $hasColumn = ((int) Db::getInstance()->getValue($checkSql)) > 0;
+
+        if (!$hasColumn) {
+            $alterSql = "ALTER TABLE `".$table_name."`
+                ADD COLUMN `rrn` varchar(50) NOT NULL,
+                ADD COLUMN `paypal_status` varchar(50) NOT NULL,
+                ADD COLUMN `paypal_capture_status` varchar(50) NOT NULL,
+                ADD COLUMN `paypal_capture_status_reason` varchar(255) NOT NULL,
+                ADD COLUMN `payment_method` varchar(50) NOT NULL;
+            ";
+
+            if (!Db::getInstance()->execute($alterSql)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function uninstall()
@@ -336,27 +364,52 @@ class Dnapayments extends PaymentModule
             'transaction_id' => $transaction->id_transaction
         ];
 
+        $paypalCaptureStatus = $transaction->paypal_capture_status;
+        $isNotValidPayPalStatus = $transaction->payment_method === 'paypal' && !$this->helper->isValidStatusPayPalStatus($transaction);
+
         $result = null;
+        $errorText = '';
+
         switch ($status) {
             case (int)Configuration::get('PS_OS_PAYMENT'):
                 if ($transaction->status == (int)Configuration::get('DNA_OS_WAITING_CAPTURE')) {
-                    try {
-                        $result = $dnaPayment->charge($data);
-                    } catch (Exception $e) {
-                        PrestaShopLogger::addLog($e->getMessage(), 3);
+                    if ($isNotValidPayPalStatus) {
+                        $errorText = sprintf( 'DNA Paypal payment could not be captured with status: %s', $paypalCaptureStatus);
+                    } else {
+                        try {
+                            $result = $dnaPayment->charge($data);
+                        } catch (Exception $e) {
+                            PrestaShopLogger::addLog($e->getMessage(), 3);
+                        }
                     }
                 }
                 break;
             case (int)Configuration::get('PS_OS_REFUND'):
                 if ($transaction->status == (int)Configuration::get('PS_OS_PAYMENT')) {
-                    $result = $dnaPayment->refund($data);
+                    if ($isNotValidPayPalStatus) {
+                        $errorText = sprintf( 'DNA Paypal payment could not be refund with status: %s', $paypalCaptureStatus);
+                    } else {
+                        $result = $dnaPayment->refund($data);
+                    }
                 }
                 break;
             case (int)Configuration::get('PS_OS_CANCELED'):
                 if ($transaction->status == (int)Configuration::get('DNA_OS_WAITING_CAPTURE')) {
-                    $result = $this->dnaPayment->cancel($data);
+                    if ($isNotValidPayPalStatus) {
+                        $errorText = sprintf( 'DNA Paypal payment could not be cancel with status: %s', $paypalCaptureStatus);
+                    } else {
+                        $result = $dnaPayment->cancel($data);
+                    }
                 }
                 break;
+        }
+
+        if (strlen($errorText) > 0) {
+            $orderMessage = new Message();
+            $orderMessage->id_order = $transaction->id_order;
+            $orderMessage->message = $errorText;
+            $orderMessage->private = true;
+            $orderMessage->save();
         }
 
         if (!empty($result) && $result['success']) {

@@ -7,7 +7,12 @@ class DnapaymentsTransaction extends ObjectModel {
     public $id_cart;
     public $id_order;
     public $dnaOrderId;
+    public $rrn;
+    public $paypal_status;
+    public $paypal_capture_status;
+    public $paypal_capture_status_reason;
     public $id_transaction;
+    public $payment_method;
     public $amount;
     public $currency;
     public $date_add;
@@ -40,9 +45,29 @@ class DnapaymentsTransaction extends ObjectModel {
                 'type' => self::TYPE_STRING,
                 'size' => 100
             ],
+            'rrn' => [
+                'type' => self::TYPE_STRING,
+                'size' => 50
+            ],
+            'paypal_status' => [
+                'type' => self::TYPE_STRING,
+                'size' => 50
+            ],
+            'paypal_capture_status' => [
+                'type' => self::TYPE_STRING,
+                'size' => 50
+            ],
+            'paypal_capture_status_reason' => [
+                'type' => self::TYPE_STRING,
+                'size' => 255
+            ],
             'id_transaction' => [
                 'type' => self::TYPE_STRING,
                 'size' => 100
+            ],
+            'payment_method' => [
+                'type' => self::TYPE_STRING,
+                'size' => 50
             ],
             'amount' => [
                 'type' => self::TYPE_FLOAT,

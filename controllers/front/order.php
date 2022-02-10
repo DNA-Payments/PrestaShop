@@ -173,10 +173,10 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
                 'reference' => $product['id_product'],
                 'name' => $product['name'],
                 'quantity' => $product['quantity'],
-                'unitPrice' => $product['price_wt'],
+                'unitPrice' => $product['price'],
                 'imageUrl' => $imageUrl,
                 'productUrl' => $link->getProductLink($product),
-                'totalAmount' => $product['total_wt']
+                'totalAmount' => $product['total']
             ];
         }
 

@@ -55,6 +55,19 @@ class DnapaymentsHelper {
         return $input['settled'] ? Configuration::get('PS_OS_PAYMENT') : Configuration::get('DNA_OS_WAITING_CAPTURE');
     }
 
+    public function isValidStatusPayPalStatus($transaction) {
+        $paypalCaptureStatus = $transaction->paypal_capture_status;
+
+        if(empty($paypalCaptureStatus)) return true;
+
+        return !(
+            stripos($paypalCaptureStatus, 'PENDING') !== false ||
+            stripos($paypalCaptureStatus, 'CUSTOMER.DISPUTE.CREATED') !== false ||
+            stripos($paypalCaptureStatus, 'CUSTOMER.DISPUTE.UPDATED') !== false ||
+            stripos($paypalCaptureStatus, 'RISK.DISPUTE.CREATED') !== false
+        );
+    }
+
     public function getAuthData($id_order, $amount, $currency) {
         return array(
             'client_id' => $this->configStore->client_id,
@@ -75,14 +88,10 @@ class DnapaymentsHelper {
         $transaction = new DnapaymentsTransaction();
         $transaction->getDnapaymentsTransactionByDnaOrderId($invoiceId);
     
-        $cart_id = false;
-        $order_id = false;
+        $cart_id = $transaction->id_cart;
+        $order_id = $transaction->id_order;
 
-        if (strpos($invoiceId, DNA_ORDER_PREFIX) !== false) {
-            $cart_id = (int) str_replace(DNA_ORDER_PREFIX, "", $invoiceId);
-        } else {
-            $order_id = (int) $invoiceId;
-        }
+        $has_order = !empty($order_id) && $order_id != 0;
 
         /** Check if currency is valid */
         $id_currency = (int)Currency::getIdByIsoCode($currency);
@@ -92,10 +101,12 @@ class DnapaymentsHelper {
         Context::getContext()->currency = new Currency($id_currency);
 
         $transaction->id_transaction = $transaction_id;
+        $transaction->rrn = $input['rrn'];
+        $transaction->payment_method = $input['paymentMethod'];
         $transaction->amount = $amount;
         $transaction->currency = $currency;
 
-        if (!$cart_id) {
+        if ($has_order) {
             $transaction->id_order = $order_id;
             $order = new Order($order_id);
 
@@ -144,6 +155,9 @@ class DnapaymentsHelper {
             }
         }
 
+        if (!empty($input['paypalCaptureStatus'])) {
+            $this->savePayPalOrderDetail($transaction, $input, true);
+        }
         $transaction->status = $status_id;
         $transaction->save();
 
@@ -167,6 +181,61 @@ class DnapaymentsHelper {
         }
 
         return $order;
+    }
+
+    private function savePayPalOrderDetail($transaction, $input, $isAddOrderNode)
+    {
+        try {
+            $newStatus = $input['paypalOrderStatus'];
+            $newCaptureStatus = $input['paypalCaptureStatus'];
+            $newReason = isset($input['paypalCaptureStatusReason']) ? $input['paypalCaptureStatusReason'] : null;
+
+            $prevStatus = $transaction->paypal_status;
+            $prevCaptureStatus = $transaction->paypal_capture_status;
+            $prevReason = $transaction->paypal_capture_status_reason;
+
+            if ($isAddOrderNode) {
+                $errorText = '';
+
+                if ($prevStatus !== $newStatus) {
+                    if (!empty($prevStatus)) {
+                        $errorText .= sprintf('DNA Payments paypal status was changed from "%s" to "%s". ', $prevStatus, $newStatus);
+                    } else {
+                        $errorText .= sprintf('DNA Payments paypal status is "%s". ', $newStatus);
+                    }
+                }
+
+                if ($prevCaptureStatus !== $newCaptureStatus) {
+                    if (!empty($prevCaptureStatus)) {
+                        $errorText .= sprintf('DNA Payments paypal capture status was changed from "%s" to "%s". ', $prevCaptureStatus, $newCaptureStatus);
+                    } else {
+                        $errorText .= sprintf('DNA Payments paypal capture status is "%s". ', $newCaptureStatus);
+                    }
+                }
+
+                if ($prevReason !== $newReason) {
+                    if (!empty($prevReason)) {
+                        $errorText .= ($newReason ? 'DNA Payments paypal capture status reason was changed: ' . $newReason . '.' : '');
+                    } else {
+                        $errorText .= ($newReason ? 'Reason:  ' . $newReason . '.' : '');
+                    }
+                }
+
+                if (strlen($errorText) > 0) {
+                    $orderMessage = new Message();
+                    $orderMessage->id_order = $transaction->id_order;
+                    $orderMessage->message = $errorText;
+                    $orderMessage->private = true;
+                    $orderMessage->save();
+                }
+            }
+
+            $transaction->paypal_status = $newStatus;
+            $transaction->paypal_capture_status = $newCaptureStatus;
+            $transaction->paypal_capture_status_reason = $newReason;
+        } catch (Exception $exception) {
+            return false;
+        }
     }
 
     public function getBacklink($cart, $order_id) {

@@ -24,12 +24,54 @@
             </tr>
             <tr>
                 <td>
+                    <strong>{l s='RRN:'}</strong>
+                </td>
+                <td>
+                    {$data.rrn|escape:'html':'utf-8'}
+                </td>
+            </tr>
+            <tr>
+                <td>
                     <strong>{l s='Cart ID:'}</strong>
                 </td>
                 <td>
                     {$data.id_cart|escape:'html':'utf-8'}
                 </td>
             </tr>
+            <tr>
+                <td>
+                    <strong>{l s='Payment method:'}</strong>
+                </td>
+                <td>
+                    {$data.payment_method|escape:'html':'utf-8'}
+                </td>
+            </tr>
+            {if $data.payment_method eq 'paypal'}
+                <tr>
+                    <td>
+                        <strong>{l s='PayPal status:'}</strong>
+                    </td>
+                    <td>
+                        {$data.paypal_status|escape:'html':'utf-8'}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>{l s='PayPal capture status:'}</strong>
+                    </td>
+                    <td>
+                        {$data.paypal_capture_status|escape:'html':'utf-8'}
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>{l s='PayPal capture status reason:'}</strong>
+                    </td>
+                    <td>
+                        {$data.paypal_capture_status_reason|escape:'html':'utf-8'}
+                    </td>
+                </tr>
+            {/if}
         </table>
     </div>
 </div>
