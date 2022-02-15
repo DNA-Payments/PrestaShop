@@ -76,8 +76,10 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
             $invoiceId = $order->id;
             $order_id = $order->id;
         } else {
-            $invoiceId = DNA_ORDER_PREFIX . $cart->id;
+            $invoiceId = $cart->id;
         }
+
+        $invoiceId = DNA_ORDER_PREFIX . $invoiceId . '_' . date("YmdHis");
 
         $customer = new Customer($cart->id_customer);
         $billingAddress = new Address($cart->id_address_delivery);
