@@ -111,6 +111,7 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
                 'accountCountry' => $country->iso_code,
                 'accountCity' => $billingAddress->city,
                 'accountStreet1' => $billingAddress->address1,
+                'accountStreet2' => $billingAddress->address2,
                 'accountPostalCode' => $billingAddress->postcode,
                 'accountEmail' => $customer->email,
                 'phone' => $billingAddress->phone ? $billingAddress->phone : $billingAddress->phone_mobile,
