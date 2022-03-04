@@ -5,12 +5,13 @@ ini_set('display_errors', 'On');
 
 define('DNA_PAYMENT_METHOD_CODE', 'dnapayments');
 define('DNA_ROOT_URL', dirname(__FILE__));
-define('DNA_VERSION', '1.3.1');
+define('DNA_VERSION', '1.4.0');
 define('DNA_ORDER_PREFIX', 'PS_');
 
 require_once DNA_ROOT_URL.'/vendor/autoload.php';
 require_once DNA_ROOT_URL.'/includes/ConfigStore.php';
 require_once DNA_ROOT_URL.'/classes/DnapaymentsTransaction.php';
+require_once DNA_ROOT_URL.'/classes/DnapaymentsAccountCard.php';
 require_once DNA_ROOT_URL.'/classes/DnapaymentsHelper.php';
 
 if (!defined('_PS_VERSION_')) {
@@ -223,6 +224,32 @@ class Dnapayments extends PaymentModule
             }
         }
 
+        return $this->createAccountCardTable();
+    }
+
+    public function createAccountCardTable()
+    {
+        $table_name = _DB_PREFIX_."dnapayments_account_cards";
+
+        $createSql = "CREATE TABLE IF NOT EXISTS `".$table_name."` (
+            `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+            `accountId` varchar(100) NOT NULL,
+            `cardTokenId` varchar(100) NOT NULL,
+            `cardPanStarred` varchar(100) NOT NULL,
+            `cardSchemeId` varchar(100) NOT NULL,
+            `cardSchemeName` varchar(100) NOT NULL,
+            `cardAlias` varchar(100) NOT NULL,
+            `cardExpiryDate` varchar(10) NOT NULL,
+            `cardholderName` varchar(100) NOT NULL,
+            `date_add` DATETIME NOT NULL,
+            `date_upd` DATETIME NOT NULL,
+            PRIMARY KEY (`id`)
+        ) ENGINE="._MYSQL_ENGINE_." DEFAULT CHARSET=utf8;";
+
+        if (!Db::getInstance()->execute($createSql)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -301,7 +328,12 @@ class Dnapayments extends PaymentModule
 
     protected function generateForm()
     {
+        $cart = $this->context->cart;
+        $account_id = $cart->id_customer;
+        $cards = DnapaymentsAccountCard::getAccountCards($account_id);
+        
         $this->context->smarty->assign(array(
+            'cards' => json_encode($cards),
             'order_url' => $this->context->link->getModuleLink($this->name, 'order'),
             'terminal_id' => Configuration::get('DNA_MERCHANT_TERMINAL_ID'),
             'test_mode' => (boolean)Configuration::get('DNA_PAYMENT_TEST_MODE'),

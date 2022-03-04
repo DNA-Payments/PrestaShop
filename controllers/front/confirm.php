@@ -15,9 +15,10 @@ class DnapaymentsConfirmModuleFrontController extends ModuleFrontController
             $helper->configStore->should_create_order_after_only_successful_payment
             && !in_array($status_id, [Configuration::get('PS_OS_PAYMENT'), Configuration::get('DNA_OS_WAITING_CAPTURE')])
         ) {
-            die();
+            die(json_encode([ 'orderId' => null]));
         }
 
+        $helper->saveCard($input);
         $order = $helper->createOrder($input, $status_id);
         die(json_encode([ 'orderId' => $order->id]));
     }

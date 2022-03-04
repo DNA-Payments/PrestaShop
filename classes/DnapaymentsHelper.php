@@ -79,6 +79,13 @@ class DnapaymentsHelper {
         );
     }
 
+    public function getInputValue($input, $key) {
+        if (array_key_exists($key, $input)) {
+            return $input[$key];
+        }
+        return null;
+    }
+
     public function createOrder($input, $status_id) {
         $invoiceId = strval($input['invoiceId']);
         $amount = (float) $input['amount'];
@@ -96,7 +103,7 @@ class DnapaymentsHelper {
         /** Check if currency is valid */
         $id_currency = (int)Currency::getIdByIsoCode($currency);
         if (!$id_currency) {
-            throw new Error('Currency is not loaded');
+            throw new Error('Currency ' . $id_currency . ' is not loaded');
         }
         Context::getContext()->currency = new Currency($id_currency);
 
@@ -155,7 +162,7 @@ class DnapaymentsHelper {
             }
         }
 
-        if (!empty($input['paypalCaptureStatus'])) {
+        if (!empty($this->getInputValue($input, 'paypalCaptureStatus'))) {
             $this->savePayPalOrderDetail($transaction, $input, true);
         }
         $transaction->status = $status_id;
@@ -181,6 +188,36 @@ class DnapaymentsHelper {
         }
 
         return $order;
+    }
+
+    public function saveCard($input) {
+        try {
+            $paymentMethod = $this->getInputValue($input, 'paymentMethod');
+            $accountId = $this->getInputValue($input, 'accountId');
+            $success = $this->getInputValue($input, 'success');
+            $cardTokenId = $this->getInputValue($input, 'cardTokenId');
+            $cardPanStarred = $this->getInputValue($input, 'cardPanStarred');
+            $cardSchemeId = $this->getInputValue($input, 'cardSchemeId');
+            $cardSchemeName = $this->getInputValue($input, 'cardSchemeName');
+            $cardExpiryDate = $this->getInputValue($input, 'cardExpiryDate');
+            $cardholderName = $this->getInputValue($input, 'cardholderName');
+
+            if ($paymentMethod == 'card' && $accountId && $success) {
+                $card = new DnapaymentsAccountCard();
+                $card->getCard($accountId, $cardTokenId);
+        
+                $card->cardPanStarred = $cardPanStarred;
+                $card->cardSchemeId = $cardSchemeId;
+                $card->cardSchemeName = $cardSchemeName;
+                $card->cardExpiryDate = $cardExpiryDate;
+                $card->cardholderName = $cardholderName;
+    
+                $card->save();
+            }
+        }
+        catch (\Exception $e) {
+            PrestaShopLogger::addLog($exception->getMessage(), 3);
+        }
     }
 
     private function savePayPalOrderDetail($transaction, $input, $isAddOrderNode)

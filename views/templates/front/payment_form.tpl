@@ -6,11 +6,20 @@
         crossorigin="anonymous"
     />
     <script src="https://pay.dnapayments.com/checkout/payment-api.js" />
+
+    {literal}
+    <script type="text/javascript">
+        var json = {/literal}{$cards|@json_encode nofilter};{literal}
+        window.cards = JSON.parse(json || '[]');
+    </script>
+    {/literal}
+
     <script>
         $(document).ready(function() {
             var form = $('.dnapayment-payments-form');
             window.DNAPayments.configure({
-                isTestMode: isTestMode()
+                isTestMode: isTestMode(),
+                cards: getCards()
             });
 
             form.submit(function(e) {
@@ -52,6 +61,22 @@
                 terminal: getTerminalId(),
                 ...orderInfo
             });
+            
+            function getCards() {
+                var cards = window.cards;
+                window.cards = null;
+
+                return cards.map(function (c) {
+                    return {
+                        merchantTokenId: c.cardTokenId,
+                        panStar: c.cardPanStarred,
+                        cardSchemeId: c.cardSchemeId,
+                        cardSchemeName: c.cardSchemeName,
+                        cardName: c.cardAlias || c.cardholderName,
+                        expiryDate: c.cardExpiryDate
+                    }
+                })
+            }
 
             function isTestMode() {
                 return `{$test_mode}` === '1'
