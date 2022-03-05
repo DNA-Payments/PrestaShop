@@ -18,7 +18,9 @@ class DnapaymentsConfirmModuleFrontController extends ModuleFrontController
             die(json_encode([ 'orderId' => null]));
         }
 
-        $helper->saveCard($input);
+        if ($helper->configStore->dna_payment_card_vault_enabled) {
+            $helper->saveCard($input);
+        }
         $order = $helper->createOrder($input, $status_id);
         die(json_encode([ 'orderId' => $order->id]));
     }

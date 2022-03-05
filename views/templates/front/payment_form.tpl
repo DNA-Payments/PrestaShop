@@ -10,16 +10,31 @@
     {literal}
     <script type="text/javascript">
         var json = {/literal}{$cards|@json_encode nofilter};{literal}
-        window.cards = JSON.parse(json || '[]');
+        var cards = JSON.parse(json || '[]');
+
+        window.getCards = function () {
+            return cards.map(function (c) {
+                return {
+                    merchantTokenId: c.cardTokenId,
+                    panStar: c.cardPanStarred,
+                    cardSchemeId: c.cardSchemeId,
+                    cardSchemeName: c.cardSchemeName,
+                    cardName: c.cardAlias || c.cardholderName,
+                    expiryDate: c.cardExpiryDate
+                }
+            })
+        }
     </script>
     {/literal}
 
     <script>
         $(document).ready(function() {
             var form = $('.dnapayment-payments-form');
+            var cards = getCards();
+
             window.DNAPayments.configure({
                 isTestMode: isTestMode(),
-                cards: getCards()
+                cards: cards
             });
 
             form.submit(function(e) {
@@ -34,14 +49,11 @@
                     },
                     success : function (result) {
                         try {
-                            var orderInfo = JSON.parse(result);
-                            if(orderInfo.errors) {
-                                return showCustomError(orderInfo.errors)
+                            var paymentData = JSON.parse(result);
+                            if(paymentData.errors) {
+                                return showCustomError(paymentData.errors)
                             }
-                            const paymentData = getPaymentData(orderInfo);
-                            if (`{$transaction_type}` !== 'default') {
-                                paymentData.transactionType = `{$transaction_type}`;
-                            }
+
                             if (`{$integration_type}` == 'embedded') {
                                 window.DNAPayments.openPaymentIframeWidget(paymentData);
                             } else {
@@ -57,33 +69,8 @@
                 });
             });
 
-            const getPaymentData = (orderInfo) => ({
-                terminal: getTerminalId(),
-                ...orderInfo
-            });
-            
-            function getCards() {
-                var cards = window.cards;
-                window.cards = null;
-
-                return cards.map(function (c) {
-                    return {
-                        merchantTokenId: c.cardTokenId,
-                        panStar: c.cardPanStarred,
-                        cardSchemeId: c.cardSchemeId,
-                        cardSchemeName: c.cardSchemeName,
-                        cardName: c.cardAlias || c.cardholderName,
-                        expiryDate: c.cardExpiryDate
-                    }
-                })
-            }
-
             function isTestMode() {
                 return `{$test_mode}` === '1'
-            }
-
-            function getTerminalId() {
-                return isTestMode() ? `{$test_terminal_id}` :  `{$terminal_id}`;
             }
             
             function showCustomError(error) {

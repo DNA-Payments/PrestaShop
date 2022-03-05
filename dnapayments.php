@@ -5,7 +5,7 @@ ini_set('display_errors', 'On');
 
 define('DNA_PAYMENT_METHOD_CODE', 'dnapayments');
 define('DNA_ROOT_URL', dirname(__FILE__));
-define('DNA_VERSION', '1.4.0');
+define('DNA_VERSION', '1.4.1');
 define('DNA_ORDER_PREFIX', 'PS_');
 
 require_once DNA_ROOT_URL.'/vendor/autoload.php';
@@ -62,6 +62,7 @@ class Dnapayments extends PaymentModule
             'DNA_MERCHANT_TEST_CLIENT_SECRET' => '',
             'DNA_MERCHANT_TEST_TERMINAL_ID' => '',
             'DNA_PAYMENT_CREATE_ORDER_AFTER_SUCCESSFUL_PAYMENT' => 1,
+            'DNA_PAYMENT_CARD_VAULT_ENABLED' => 0,
             'DNA_PAYMENT_TRANSACTION_TYPE' => 'default',
             'DNA_PAYMENT_INTEGRATION_TYPE' => 'hosted',
             'DNA_PAYMENT_BACK_LINK' => '',
@@ -330,7 +331,11 @@ class Dnapayments extends PaymentModule
     {
         $cart = $this->context->cart;
         $account_id = $cart->id_customer;
-        $cards = DnapaymentsAccountCard::getAccountCards($account_id);
+        $cards = [];
+
+        if ($this->helper->configStore->dna_payment_card_vault_enabled) {
+            $cards = DnapaymentsAccountCard::getAccountCards($account_id);
+        }
         
         $this->context->smarty->assign(array(
             'cards' => json_encode($cards),

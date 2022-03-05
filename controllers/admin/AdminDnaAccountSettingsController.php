@@ -20,6 +20,7 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             'dna_merchant_test_client_secret',
             'dna_merchant_test_terminal_id',
             'dna_payment_create_order_after_successful_payment',
+            'dna_payment_card_vault_enabled',
             'dna_payment_transaction_type',
             'dna_payment_integration_type',
             'dna_payment_back_link',
@@ -65,6 +66,7 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
             'dna_merchant_test_client_secret' => Configuration::get('DNA_MERCHANT_TEST_CLIENT_SECRET'),
             'dna_merchant_test_terminal_id' => Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID'),
             'dna_payment_create_order_after_successful_payment' => (boolean)Configuration::get('DNA_PAYMENT_CREATE_ORDER_AFTER_SUCCESSFUL_PAYMENT'),
+            'dna_payment_card_vault_enabled' => (boolean)Configuration::get('DNA_PAYMENT_CARD_VAULT_ENABLED'),
             'dna_payment_transaction_type' => Configuration::get('DNA_PAYMENT_TRANSACTION_TYPE'),
             'dna_payment_integration_type' => Configuration::get('DNA_PAYMENT_INTEGRATION_TYPE'),
             'dna_payment_back_link' => Configuration::get('DNA_PAYMENT_BACK_LINK'),
@@ -172,6 +174,24 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
                 'type' => 'text',
                 'name' => 'dna_merchant_test_terminal_id',
                 'label' => $this->module->l('Test Terminal ID'),
+                'required' => false
+            ),
+            array(
+                'col' => 6,
+                'type' => 'switch',
+                'name' => 'dna_payment_card_vault_enabled',
+                'label' => $this->module->l('Card vaulting'),
+                'is_bool' => false,
+                'values' => array(
+                    array(
+                        'value' => true,
+                        'label' => $this->module->l('Enabled')
+                    ),
+                    array(
+                        'value' => false,
+                        'label' => $this->module->l('Disabled')
+                    )
+                ),
                 'required' => false
             ),
             array(

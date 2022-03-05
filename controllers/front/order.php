@@ -42,6 +42,8 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
 
     public function displayAjaxCreateOrder()
     {
+        $test_mode = (boolean)Configuration::get('DNA_PAYMENT_TEST_MODE');
+
         $cart = $this->context->cart;
         if ($cart->id_customer == 0 || $cart->id_address_delivery == 0 || $cart->id_address_invoice == 0 || !$this->module->active) {
             Tools::redirect('index.php?controller=order&step=1');
@@ -105,29 +107,43 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
             
             $data = array(
                 'auth' => $auth,
-                'accountId' => $cart->id_customer ? $cart->id_customer : '',
-                'accountFirstName' => $billingAddress->firstname,
-                'accountLastName' => $billingAddress->lastname,
-                'accountCountry' => $country->iso_code,
-                'accountCity' => $billingAddress->city,
-                'accountStreet1' => $billingAddress->address1,
-                'accountStreet2' => $billingAddress->address2,
-                'accountPostalCode' => $billingAddress->postcode,
-                'accountEmail' => $customer->email,
-                'phone' => $billingAddress->phone ? $billingAddress->phone : $billingAddress->phone_mobile,
                 'invoiceId' => $invoiceId,
-                'currency' => $currency->iso_code,
-                'amount' => $cart->getOrderTotal(),
-                'shippingAddress' => $this->getAddress($shippingAddress),
-                'amountBreakdown' => $this->getAmountBreakDown($cart),
-                'orderLines' => $this->getOrderLines($cart),
-                'language' => 'en-gb',
                 'description' => Configuration::get('DNA_PAYMENT_GATEWAY_ORDER_DESCRIPTION'),
-                'postLink' => $this->context->link->getModuleLink($this->module->name, 'confirm'),
-                'failurePostLink' => $this->context->link->getModuleLink($this->module->name, 'confirm'),
-                'backLink' => $this->getReturnlink($cart, $order_id, 'success'),
-                'failureBackLink' => $this->getReturnlink($cart, $order_id, 'failed')
+                'amount' => $cart->getOrderTotal(),
+                'currency' => $currency->iso_code,
+                'paymentSettings' => array(
+                    'terminalId' => $test_mode ? Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID') : Configuration::get('DNA_MERCHANT_TERMINAL_ID'),
+                    'returnUrl' => $this->getReturnlink($cart, $order_id, 'success'),
+                    'failureReturnUrl' => $this->getReturnlink($cart, $order_id, 'failed'),
+                    'callbackUrl' => $this->context->link->getModuleLink($this->module->name, 'confirm'),
+                    'failureCallbackUrl' => $this->context->link->getModuleLink($this->module->name, 'confirm')
+                ),
+                'customerDetails' => array(
+                    'email' => $customer->email,
+                    'accountDetails' => array(
+                        'accountId' => $cart->id_customer ? $cart->id_customer : '',
+                    ),
+                    'billingAddress' => $this->getAddress($billingAddress),
+                    'deliveryDetails' => array(
+                        'deliveryAddress' => $this->getAddress($shippingAddress)
+                    )
+                ),
+                'language' => 'en-gb',
+                'amountBreakdown' => $this->getAmountBreakDown($cart),
+                'orderLines' => $this->getOrderLines($cart)
             );
+
+            $transactionType = Configuration::get('DNA_PAYMENT_TRANSACTION_TYPE');
+            if ($transactionType && $transactionType != 'default') {
+                $data['transactionType'] = $transactionType;
+            }
+
+            if ($this->getConfigStore()->dna_payment_card_vault_enabled) {
+                $data['periodic'] = array(
+                    'periodicType' => 'ucof'
+                );
+            }
+
             echo json_encode($data);
             return;
         }
@@ -190,13 +206,13 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
         $country = new Country($address->id_country);
         return array(
             'firstName' => $address->firstname,
-            'lastName'  => $address->lastname,
-            'streetAddress1'  => $address->address1,
-            'streetAddress2'  => $address->address2,
-            'city'       => $address->city,
-            'postalCode'   => $address->postcode,
-            'phone'      => $address->phone ? $address->phone : $address->phone_mobile,
-            'country'    => $country->iso_code
+            'lastName' => $address->lastname,
+            'addressLine1' => $address->address1,
+            'addressLine2' => $address->address2,
+            'postalCode' => $address->postcode,
+            'city' => $address->city,
+            'phone' =>  $address->phone ? $address->phone : $address->phone_mobile,
+            'country' => $country->iso_code
         );
     }
 

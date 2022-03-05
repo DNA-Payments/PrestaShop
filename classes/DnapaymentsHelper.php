@@ -108,8 +108,8 @@ class DnapaymentsHelper {
         Context::getContext()->currency = new Currency($id_currency);
 
         $transaction->id_transaction = $transaction_id;
-        $transaction->rrn = $input['rrn'];
-        $transaction->payment_method = $input['paymentMethod'];
+        $transaction->rrn = $this->getInputValue($input, 'rrn');
+        $transaction->payment_method = $this->getInputValue($input, 'paymentMethod');
         $transaction->amount = $amount;
         $transaction->currency = $currency;
 
@@ -179,10 +179,10 @@ class DnapaymentsHelper {
             Db::getInstance()->execute(
                 'UPDATE `'._DB_PREFIX_.'order_payment`
                 SET `order_reference` = "'.pSQL($order->reference).'",
-                    `transaction_id` = "'.$input['id'].'",
-                    `card_number` = "'.($input['cardPanStarred'] ?? '').'",
-                    `card_expiration` = "'.($input['cardExpiryDate'] ?? '').'",
-                    `card_brand` = "'.($input['cardSchemeName'] ?? '').'"
+                    `transaction_id` = "'.$transaction_id.'",
+                    `card_number` = "'.($this->getInputValue($input, 'cardPanStarred') ?? '').'",
+                    `card_expiration` = "'.($this->getInputValue($input, 'cardExpiryDate') ?? '').'",
+                    `card_brand` = "'.($this->getInputValue($input, 'cardSchemeName') ?? '').'"
                 WHERE  `id_order_payment` = '.$id_order_payment
             );
         }
@@ -223,9 +223,9 @@ class DnapaymentsHelper {
     private function savePayPalOrderDetail($transaction, $input, $isAddOrderNode)
     {
         try {
-            $newStatus = $input['paypalOrderStatus'];
-            $newCaptureStatus = $input['paypalCaptureStatus'];
-            $newReason = isset($input['paypalCaptureStatusReason']) ? $input['paypalCaptureStatusReason'] : null;
+            $newStatus = $this->getInputValue($input, 'paypalOrderStatus');
+            $newCaptureStatus = $this->getInputValue($input, 'paypalCaptureStatus');
+            $newReason = $this->getInputValue($input, 'paypalCaptureStatusReason');
 
             $prevStatus = $transaction->paypal_status;
             $prevCaptureStatus = $transaction->paypal_capture_status;
