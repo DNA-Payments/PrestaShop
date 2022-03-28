@@ -1,11 +1,11 @@
 <?php
 
-error_reporting(E_ERROR);
-ini_set('display_errors', 'On');
+error_reporting(0);
+ini_set('display_errors', 'Off');
 
 define('DNA_PAYMENT_METHOD_CODE', 'dnapayments');
 define('DNA_ROOT_URL', dirname(__FILE__));
-define('DNA_VERSION', '1.4.1');
+define('DNA_VERSION', '1.4.2');
 define('DNA_ORDER_PREFIX', 'PS_');
 
 require_once DNA_ROOT_URL.'/vendor/autoload.php';
