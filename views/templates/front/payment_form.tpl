@@ -1,99 +1,128 @@
-{if isset($order_url) }
-    <form style="display:none" class="dnapayment-payments-form" method="POST" />
-    <script
-        src="https://code.jquery.com/jquery-3.5.0.min.js"
-        integrity="sha256-xNzN2a4ltkB44Mc/Jz3pT4iU1cmeR0FkXs4pru/JxaQ="
-        crossorigin="anonymous"
-    />
-    <script src="https://pay.dnapayments.com/checkout/payment-api.js" />
+{if isset($order_url)}
 
-    {literal}
+    <form action="{$order_url}" id="dna-payment-form" class="dna-payment-form" method="POST" style="display:none;">
+        <input type="hidden" name="ajax" value="1" />
+    </form>
+
+    {* SDK *}
+    {if isset($test_mode) && $test_mode}
+        <script src="https://test-pay.dnapayments.com/checkout/payment-api.js"></script>
+    {else}
+        <script src="https://pay.dnapayments.com/checkout/payment-api.js"></script>
+    {/if}
+
     <script type="text/javascript">
-        var json = {/literal}{$cards|@json_encode nofilter};{literal}
-        var cards = JSON.parse(json || '[]');
+        document.addEventListener('DOMContentLoaded', function () {
+            var $ = window.jQuery;
+            if (!$) {
+                console.error('[DNA] jQuery not found');
+                return;
+            }
 
-        window.getCards = function () {
-            return cards.map(function (c) {
-                return {
-                    merchantTokenId: c.cardTokenId,
-                    panStar: c.cardPanStarred,
-                    cardSchemeId: c.cardSchemeId,
-                    cardSchemeName: c.cardSchemeName,
-                    cardName: c.cardAlias || c.cardholderName,
-                    expiryDate: c.cardExpiryDate
-                }
-            })
-        }
-    </script>
-    {/literal}
+            var ORDER_URL = '{$order_url}';
 
-    <script>
-        $(document).ready(function() {
-            var form = $('.dnapayment-payments-form');
-            var cards = getCards();
+            var cards = {$cards|@json_encode nofilter};
 
-            window.DNAPayments.configure({
-                isTestMode: isTestMode(),
-                cards: cards
-            });
+            if (!Array.isArray(cards)) {
+                cards = [];
+            }
+            console.log('[DNA] cards', cards, Array.isArray(cards));
 
-            form.submit(function(e) {
-                e.preventDefault();
-                $.ajax({
-                    url : `{$order_url}`,
-                    type : 'POST',
-                    cache : false,
-                    data : {
-                        ajax : true,
-                        action : 'createOrder'
-                    },
-                    success : function (result) {
-                        try {
-                            var paymentData = JSON.parse(result);
-                            if(paymentData.errors) {
-                                return showCustomError(paymentData.errors)
-                            }
 
-                            if (`{$integration_type}` == 'embedded') {
-                                window.DNAPayments.openPaymentIframeWidget(paymentData);
-                            } else {
-                                window.DNAPayments.openPaymentPage(paymentData);
-                            }
-                        } catch (e) {
-                            return showCustomError('System error! Please try later')
-                        }
-                    },
-                    error: function (xhr) {
-                        return showCustomError(xhr.responseText)
-                    }
+            function getCards() {
+                return cards.map(function (c) {
+                    return {
+                        merchantTokenId: c.cardTokenId,
+                        panStar: c.cardPanStarred,
+                        cardSchemeId: c.cardSchemeId,
+                        cardSchemeName: c.cardSchemeName,
+                        cardName: c.cardAlias || c.cardholderName,
+                        expiryDate: c.cardExpiryDate
+                    };
                 });
-            });
-
-            function isTestMode() {
-                return `{$test_mode}` === '1'
             }
-            
-            function showCustomError(error) {
-                var errorContent = document.createElement("p");
-                if(Array.isArray(error)) {
-                    errorContent.append(generateErrorList(error))
+
+
+            function attachDNAListener() {
+                var $form = $('#dna-payment-form');
+                var $btn  = $('#payment-confirmation button');
+
+                if (!$form.length || !$btn.length) {
+                    return;
+                }
+
+                $btn.off('click.dna').on('click.dna', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+
+                    // manually trigger our submit
+                    $form.trigger('submit');
+                    return false;
+                });
+
+                $form.off('submit').on('submit', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+
+                    $btn.prop('disabled', true);
+
+                    $.ajax({
+                        url: '{$order_url}',
+                        type: 'POST',
+                        dataType: 'json',
+                        data: {
+                            ajax: 1,
+                            action: 'createOrder'
+                        },
+                        success: function (paymentData) {
+                            if (paymentData.errors) {
+                                showError(paymentData.errors);
+                                $btn.prop('disabled', false);
+                                return;
+                            }
+
+                            DNAPayments.configure({
+                                isTestMode: '{$test_mode}' === '1',
+                                cards: getCards()
+                            });
+
+                            if ('{$integration_type}' === 'embedded') {
+                                DNAPayments.openPaymentIframeWidget(paymentData);
+                            } else {
+                                DNAPayments.openPaymentPage(paymentData);
+                            }
+                        },
+                        error: function (xhr) {
+                            showError(xhr.responseText || 'System error');
+                            $btn.prop('disabled', false);
+                        }
+                    });
+
+                    return false;
+                });
+            }
+
+
+            function showError(error) {
+                var $alert = $('<div class="alert alert-danger"></div>');
+                if (Array.isArray(error)) {
+                    var $ul = $('<ul></ul>');
+                    error.forEach(function (e) {
+                        $ul.append('<li>' + e + '</li>');
+                    });
+                    $alert.append($ul);
                 } else {
-                    errorContent.innerHTML = error;
+                    $alert.text(error);
                 }
-                errorContent.classList = 'alert alert-danger';
-                $('#checkout-payment-step').prepend(errorContent)
+                $('#checkout-payment-step').prepend($alert);
             }
 
-            function generateErrorList(errors) {
-                const newList = document.createElement('ul');
+            attachDNAListener();
 
-                for (let i = 0; i < errors.length; i++) {
-                    const item = document.createElement('li')
-                    item.innerHTML = errors[i];
-                    newList.append(item);
-                }
-
-                return newList;
+            if (typeof prestashop !== 'undefined') {
+                prestashop.on('updatedPaymentOptions', attachDNAListener);
             }
         });
     </script>

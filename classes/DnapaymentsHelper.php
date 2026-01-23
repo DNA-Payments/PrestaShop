@@ -42,7 +42,7 @@ class DnapaymentsHelper {
 
     public function validateAndGetStatus($input) {
 
-        if (!$input['invoiceId']) throw new Error('Can not find order');
+        if (empty($input['invoiceId'])) throw new Error('Can not find order');
         
         if (!\DNAPayments\DNAPayments::isValidSignature($input, $this->configStore->client_secret)) {
             throw new Error('Order data is not valid');
@@ -87,10 +87,10 @@ class DnapaymentsHelper {
     }
 
     public function createOrder($input, $status_id) {
-        $invoiceId = strval($input['invoiceId']);
-        $amount = (float) $input['amount'];
-        $currency = $input['currency'];
-        $transaction_id = $input['id'];
+        $invoiceId = (string) ($input['invoiceId'] ?? '');
+        $amount = (float) ($input['amount'] ?? 0);
+        $currency = (string) ($input['currency'] ?? '');
+        $transaction_id = (string) ($input['id'] ?? '');
 
         $transaction = new DnapaymentsTransaction();
         $transaction->getDnapaymentsTransactionByDnaOrderId($invoiceId);
@@ -179,7 +179,7 @@ class DnapaymentsHelper {
             Db::getInstance()->execute(
                 'UPDATE `'._DB_PREFIX_.'order_payment`
                 SET `order_reference` = "'.pSQL($order->reference).'",
-                    `transaction_id` = "'.$transaction_id.'",
+                    `transaction_id` = "'.pSQL($transaction_id).'",
                     `card_number` = "'.($this->getInputValue($input, 'cardPanStarred') ?? '').'",
                     `card_expiration` = "'.($this->getInputValue($input, 'cardExpiryDate') ?? '').'",
                     `card_brand` = "'.($this->getInputValue($input, 'cardSchemeName') ?? '').'"
@@ -216,7 +216,7 @@ class DnapaymentsHelper {
             }
         }
         catch (\Exception $e) {
-            PrestaShopLogger::addLog($exception->getMessage(), 3);
+            PrestaShopLogger::addLog($e->getMessage(), 3);
         }
     }
 

@@ -42,121 +42,173 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
 
     public function displayAjaxCreateOrder()
     {
-        $test_mode = (boolean)Configuration::get('DNA_PAYMENT_TEST_MODE');
-
-        $cart = $this->context->cart;
-        if ($cart->id_customer == 0 || $cart->id_address_delivery == 0 || $cart->id_address_invoice == 0 || !$this->module->active) {
-            Tools::redirect('index.php?controller=order&step=1');
-        }
-
-        // Check that this payment option is still available in case the customer changed his address just before the end of the checkout process
-        $authorized = false;
-        foreach (Module::getPaymentModules() as $module) {
-            if ($module['name'] == 'dnapayments') {
-                $authorized = true;
-                break;
-            }
-        }
-
-        if (!$authorized) {
-            die($this->module->l('This payment method is not available.', 'validation'));
-        }
-
-        $validateOrders = $this->validateOrderFields($cart);
-
-        if(count($validateOrders) > 0) {
-            echo json_encode(array(
-                'errors' => $validateOrders
-            ));
-            return;
-        }
-
-        $invoiceId = '';
-        $order_id = 0;
-        if (!$this->getConfigStore()->should_create_order_after_payment) {
-            $order = $this->createOrder($cart);
-            $invoiceId = $order->id;
-            $order_id = $order->id;
-        } else {
-            $invoiceId = $cart->id;
-        }
-
-        $invoiceId = DNA_ORDER_PREFIX . $invoiceId . '_' . date("YmdHis");
-
-        $customer = new Customer($cart->id_customer);
-        $billingAddress = new Address($cart->id_address_invoice);
-        $shippingAddress = new Address($cart->id_address_delivery);
-        $country = new Country($billingAddress->id_country);
-        $currency = new Currency((int) $cart->id_currency);
+        header('Content-Type: application/json');
 
         try {
+            $test_mode = (bool) Configuration::get('DNA_PAYMENT_TEST_MODE');
+            $cart = $this->context->cart;
+
+            // Basic checks
+            if (
+                !$cart ||
+                (int)$cart->id_customer === 0 ||
+                (int)$cart->id_address_delivery === 0 ||
+                (int)$cart->id_address_invoice === 0 ||
+                !$this->module->active
+            ) {
+                echo json_encode([
+                    'errors' => ['Invalid cart or module inactive']
+                ]);
+                return;
+            }
+
+            // Checking the module's availability
+            $authorized = false;
+            foreach (Module::getPaymentModules() as $module) {
+                if ($module['name'] === 'dnapayments') {
+                    $authorized = true;
+                    break;
+                }
+            }
+
+            if (!$authorized) {
+                echo json_encode([
+                    'errors' => [$this->module->l('This payment method is not available.', 'validation')]
+                ]);
+                return;
+            }
+
+            // Validation
+            $validationErrors = $this->validateOrderFields($cart);
+            if (!empty($validationErrors)) {
+                echo json_encode([
+                    'errors' => $validationErrors
+                ]);
+                return;
+            }
+
+            // Defining invoice/order
+            $order_id = 0;
+
+            if (!$this->getConfigStore()->should_create_order_after_payment) {
+                $order = $this->createOrder($cart);
+                $order_id = (int) $order->id;
+                $invoiceBase = $order_id;
+            } else {
+                $invoiceBase = (int) $cart->id;
+            }
+
+            $invoiceId = DNA_ORDER_PREFIX . $invoiceBase . '_' . date('YmdHis');
+
+            // Loading entities
+            $customer        = new Customer($cart->id_customer);
+            $billingAddress  = new Address($cart->id_address_invoice);
+            $shippingAddress = new Address($cart->id_address_delivery);
+            $currency        = new Currency((int) $cart->id_currency);
+
+            // Authorization in DNA
             $auth = $this->getDnaPayment()->auth(
-                $this->module->helper->getAuthData($invoiceId, $cart->getOrderTotal(), $currency->iso_code)
+                $this->module->helper->getAuthData(
+                    $invoiceId,
+                    $cart->getOrderTotal(),
+                    $currency->iso_code
+                )
             );
 
+            // Save ttransaction
             $transaction = new DnapaymentsTransaction();
             $transaction->getDnapaymentsTransactionByCart($cart->id);
-            $transaction->status = Configuration::get('DNA_OS_AWAITING_PAYMENT');
-            $transaction->id_customer = $cart->id_customer;
-            $transaction->id_cart = $cart->id;
-            $transaction->id_order = $order_id;
-            $transaction->dnaOrderId = $invoiceId;
-            $transaction->amount = $cart->getOrderTotal();
-            $transaction->currency = $currency->iso_code;
-            $transaction->save();
-            
-            $data = array(
-                'auth' => $auth,
-                'invoiceId' => $invoiceId,
-                'description' => Configuration::get('DNA_PAYMENT_GATEWAY_ORDER_DESCRIPTION'),
-                'amount' => $cart->getOrderTotal(),
-                'currency' => $currency->iso_code,
-                'paymentSettings' => array(
-                    'terminalId' => $test_mode ? Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID') : Configuration::get('DNA_MERCHANT_TERMINAL_ID'),
-                    'returnUrl' => $this->getReturnlink($cart, $order_id, 'success'),
-                    'failureReturnUrl' => $this->getReturnlink($cart, $order_id, 'failed'),
-                    'callbackUrl' => $this->context->link->getModuleLink($this->module->name, 'confirm'),
-                    'failureCallbackUrl' => $this->context->link->getModuleLink($this->module->name, 'confirm')
-                ),
-                'customerDetails' => array(
-                    'email' => $customer->email,
-                    'accountDetails' => array(
-                        'accountId' => $cart->id_customer ? $cart->id_customer : '',
-                    ),
-                    'billingAddress' => $this->getAddress($billingAddress),
-                    'deliveryDetails' => array(
-                        'deliveryAddress' => $this->getAddress($shippingAddress)
-                    )
-                ),
-                'language' => 'en-gb',
-                'amountBreakdown' => $this->getAmountBreakDown($cart),
-                'orderLines' => $this->getOrderLines($cart)
-            );
 
+            $transaction->status      = (int) Configuration::get('DNA_OS_AWAITING_PAYMENT');
+            $transaction->id_customer = (int) $cart->id_customer;
+            $transaction->id_cart     = (int) $cart->id;
+            $transaction->id_order    = (int) $order_id;
+            $transaction->dnaOrderId  = $invoiceId;
+            $transaction->amount      = (float) $cart->getOrderTotal();
+            $transaction->currency    = $currency->iso_code;
+            $transaction->save();
+
+            // Generating a payload for the SDK
+            $data = [
+                'auth'        => $auth,
+                'invoiceId'   => $invoiceId,
+                'description'=> Configuration::get('DNA_PAYMENT_GATEWAY_ORDER_DESCRIPTION'),
+                'amount'     => $cart->getOrderTotal(),
+                'currency'   => $currency->iso_code,
+
+                'paymentSettings' => [
+                    'terminalId' => $test_mode
+                        ? Configuration::get('DNA_MERCHANT_TEST_TERMINAL_ID')
+                        : Configuration::get('DNA_MERCHANT_TERMINAL_ID'),
+
+                    // SUCCESS → order-confirmation
+                    'returnUrl' => $this->getReturnlink($cart, $order_id, 'success'),
+
+                    // CANCEL / FAILED → checkout (step=3)
+                    'failureReturnUrl' => $this->getReturnlink($cart, $order_id, 'failed'),
+
+                    // Webhook
+                    'callbackUrl' => $this->context->link->getModuleLink(
+                        $this->module->name,
+                        'confirm',
+                        [],
+                        true
+                    ),
+                    'failureCallbackUrl' => $this->context->link->getModuleLink(
+                        $this->module->name,
+                        'confirm',
+                        [],
+                        true
+                    ),
+                ],
+
+                'customerDetails' => [
+                    'email' => $customer->email,
+                    'accountDetails' => [
+                        'accountId' => (string) $cart->id_customer,
+                    ],
+                    'billingAddress' => $this->getAddress($billingAddress),
+                    'deliveryDetails' => [
+                        'deliveryAddress' => $this->getAddress($shippingAddress),
+                    ],
+                ],
+
+                'language'        => 'en-gb',
+                'amountBreakdown'=> $this->getAmountBreakDown($cart),
+                'orderLines'     => $this->getOrderLines($cart),
+            ];
+
+            // Transaction type
             $transactionType = Configuration::get('DNA_PAYMENT_TRANSACTION_TYPE');
-            if ($transactionType && $transactionType != 'default') {
+            if ($transactionType && $transactionType !== 'default') {
                 $data['transactionType'] = $transactionType;
             }
 
+            // 10. Card vault
             if ($this->getConfigStore()->dna_payment_card_vault_enabled) {
-                $data['periodic'] = array(
-                    'periodicType' => 'ucof'
-                );
+                $data['periodic'] = [
+                    'periodicType' => 'ucof',
+                ];
             }
 
             echo json_encode($data);
             return;
-        }
-        catch (Exception $exception) {
-            PrestaShopLogger::addLog($exception->getMessage(), 3);
-            echo json_encode(array(
-                'errors' => array(
-                    'Ooops, something went wrong! Please check system API credentials or try later'
-                )
-            ));
+
+        } catch (Exception $e) {
+            \PrestaShopLogger::addLog(
+                '[DNA ORDER] ' . $e->getMessage(),
+                3
+            );
+
+            echo json_encode([
+                'errors' => [
+                    'Ooops, something went wrong! Please try again later.'
+                ]
+            ]);
             return;
         }
     }
+
 
     public function getAmountBreakDown(Cart $cart)
     {
@@ -231,12 +283,29 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
         }
     }
 
-    public function getReturnlink($cart, $order_id, $status) {
-        $link = $status == 'success' ? $this->module->helper->getBacklink($cart, $order_id) : $this->module->helper->getFailureBackLink();
-
-        if (!$this->getConfigStore()->should_create_order_after_payment) {
-            return $link;
+    public function getReturnlink($cart, $order_id, $status)
+    {
+        // cancel / failed → back to checkout
+        if ($status !== 'success') {
+            return $this->context->link->getPageLink('order');
         }
-        return $this->context->link->getModuleLink($this->module->name, 'return', array('id_cart' => $cart->id, 'status' => $status));
+
+        // SUCCESS
+        if ($this->getConfigStore()->should_create_order_after_payment) {
+            // go to the return controller, it MUST redirect to order-confirmation
+            return $this->context->link->getModuleLink(
+                $this->module->name,
+                'return',
+                [
+                    'id_cart' => (int) $cart->id,
+                    'status'  => 'success',
+                ],
+                true
+            );
+        }
+
+        // if the order was created BEFORE payment
+        return $this->module->helper->getBacklink($cart, $order_id);
     }
+
 }

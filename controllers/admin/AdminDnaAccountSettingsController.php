@@ -9,6 +9,8 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
     {
         $this->controller_type = 'moduleadmin';
         $this->bootstrap = true;
+
+        $this->controller_name = 'AdminDnaAccountSettings';
         $this->parametres = array(
             'dna_payment_title',
             'dna_payment_description',
@@ -46,12 +48,12 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
     {
         $this->fields_form['form']['form'] = array(
             'legend' => array(
-                'title' => $this->l('Account settings'),
+                'title' => $this->module->l('Account settings'),
                 'icon' => 'icon-cogs',
             ),
             'input' => $this->getAccountSettingsFields(),
             'submit' => array(
-                'title' => $this->l('Save'),
+                'title' => $this->module->l('Save'),
                 'class' => 'btn btn-default pull-right button'
             )
         );
@@ -84,7 +86,7 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
         }
         $helper = new HelperForm();
         $helper->token = Tools::getAdminTokenLite($this->controller_name);
-        $helper->currentIndex = AdminController::$currentIndex;
+        $helper->currentIndex = AdminController::$currentIndex . '&controller=' . $this->controller_name;
         $helper->submit_action = $this->controller_name . '_config';
         $default_lang = (int)\Configuration::get('PS_LANG_DEFAULT');
         $helper->default_form_language = $default_lang;

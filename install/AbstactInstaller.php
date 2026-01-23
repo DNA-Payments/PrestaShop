@@ -27,6 +27,8 @@ abstract class AbstactInstaller {
         $result = $this->clearHookUsed();
         $result &= $this->uninstallModuleAdminControllers();
         $result &= $this->installAdminControllers();
+        //$result = $result && $this->uninstallModuleAdminControllers();
+        //$result = $result && $this->installAdminControllers();
 
         return $result;
     }

@@ -5,23 +5,46 @@ class DnapaymentsConfirmModuleFrontController extends ModuleFrontController
 
     public function init()
     {
+        if (Tools::getValue('module') === 'dnapayments') {
+            $this->display_header = false;
+            $this->display_footer = false;
+        }
         parent::init();
 
         $helper = $this->module->helper;
         $input = json_decode(file_get_contents('php://input'), true);
-        $status_id = $helper->validateAndGetStatus($input);
 
-        if (
-            $helper->configStore->should_create_order_after_only_successful_payment
-            && !in_array($status_id, [Configuration::get('PS_OS_PAYMENT'), Configuration::get('DNA_OS_WAITING_CAPTURE')])
-        ) {
-            die(json_encode([ 'orderId' => null]));
-        }
+        PrestaShopLogger::addLog(
+            '[DNA CONFIRM] Incoming payload: ' . json_encode($input),
+            1
+        );
 
-        if ($helper->configStore->dna_payment_card_vault_enabled) {
-            $helper->saveCard($input);
-        }
-        $order = $helper->createOrder($input, $status_id);
-        die(json_encode([ 'orderId' => $order->id]));
+        $statusId = $helper->validateAndGetStatus($input);
+
+        PrestaShopLogger::addLog(
+            '[DNA CONFIRM] Status resolved: ' . $statusId,
+            1
+        );
+
+        $order = $helper->createOrder($input, $statusId);
+
+        PrestaShopLogger::addLog(
+            '[DNA CONFIRM] Order processed. ID=' . ($order ? $order->id : 'null'),
+            1
+        );
+
+        die(json_encode([
+            'orderId' => $order ? (int)$order->id : null
+        ]));
     }
+
+    public function postProcess()
+    {
+        if ($this->context->cart && $this->context->cart->orderExists()) {
+            return;
+        }
+
+        parent::postProcess();
+    }
+
 }
