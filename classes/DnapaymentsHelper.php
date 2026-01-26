@@ -216,7 +216,12 @@ class DnapaymentsHelper {
             }
         }
         catch (\Exception $e) {
-            PrestaShopLogger::addLog($e->getMessage(), 3);
+            echo json_encode([
+                'errors' => [
+                    'Ooops, something went wrong! Please try again later.'
+                ]
+            ]);
+            return;
         }
     }
 

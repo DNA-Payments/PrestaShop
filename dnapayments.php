@@ -81,7 +81,6 @@ class Dnapayments extends PaymentModule
             ),
             'class_name' => 'AdminParentDnaConfiguration',
             'parent_class_name' => 'SELL',
-            //'parent_class_name' => 'AdminParentOrders'
             'visible' => false,
             'icon' => 'payment'
         ),
@@ -417,7 +416,12 @@ class Dnapayments extends PaymentModule
                         try {
                             $result = $dnaPayment->charge($data);
                         } catch (Exception $e) {
-                            PrestaShopLogger::addLog($e->getMessage(), 3);
+                            echo json_encode([
+                                'errors' => [
+                                    'Ooops, something went wrong! Please try again later.'
+                                ]
+                            ]);
+                            return;
                         }
                     }
                 }

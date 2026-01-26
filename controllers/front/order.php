@@ -195,11 +195,7 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
             return;
 
         } catch (Exception $e) {
-            \PrestaShopLogger::addLog(
-                '[DNA ORDER] ' . $e->getMessage(),
-                3
-            );
-
+            PrestaShopLogger::addLog($e->getMessage(), 3);
             echo json_encode([
                 'errors' => [
                     'Ooops, something went wrong! Please try again later.'

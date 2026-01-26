@@ -4,12 +4,7 @@
         <input type="hidden" name="ajax" value="1" />
     </form>
 
-    {* SDK *}
-    {if isset($test_mode) && $test_mode}
-        <script src="https://test-pay.dnapayments.com/checkout/payment-api.js"></script>
-    {else}
-        <script src="https://pay.dnapayments.com/checkout/payment-api.js"></script>
-    {/if}
+    <script src="https://pay.dnapayments.com/checkout/payment-api.js"></script>
 
     <script type="text/javascript">
         document.addEventListener('DOMContentLoaded', function () {
@@ -19,15 +14,11 @@
                 return;
             }
 
-            var ORDER_URL = '{$order_url}';
-
             var cards = {$cards|@json_encode nofilter};
 
             if (!Array.isArray(cards)) {
                 cards = [];
             }
-            console.log('[DNA] cards', cards, Array.isArray(cards));
-
 
             function getCards() {
                 return cards.map(function (c) {
