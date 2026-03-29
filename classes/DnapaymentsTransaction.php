@@ -1,7 +1,7 @@
 <?php
 
 class DnapaymentsTransaction extends ObjectModel {
-    
+
     public $status;
     public $id_customer;
     public $id_cart;

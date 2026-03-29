@@ -5,7 +5,7 @@ ini_set('display_errors', 'Off');
 
 define('DNA_PAYMENT_METHOD_CODE', 'dnapayments');
 define('DNA_ROOT_URL', dirname(__FILE__));
-define('DNA_VERSION', '1.4.2');
+define('DNA_VERSION', '1.5.0');
 define('DNA_ORDER_PREFIX', 'PS_');
 
 require_once DNA_ROOT_URL.'/vendor/autoload.php';
@@ -32,9 +32,9 @@ class Dnapayments extends PaymentModule
         $this->name = DNA_PAYMENT_METHOD_CODE;
         $this->tab = 'payments_gateways';
         $this->version = DNA_VERSION;
-        $this->ps_versions_compliancy = array('min' => '1.6', 'max' => _PS_VERSION_);
+        $this->ps_versions_compliancy = ['min' => '1.7.0.0', 'max' => '8.99.99'];
         $this->author = 'DNA Payments';
-        $this->controllers = array( 'order', 'confirm', 'orderFailureResult');
+        $this->controllers = array( 'order', 'confirm', 'return', 'orderFailureResult');
         $this->need_instance = 1;
         $this->currencies = true;
         $this->currencies_mode = 'checkbox';
@@ -202,7 +202,7 @@ class Dnapayments extends PaymentModule
             `date_add` DATETIME NOT NULL,
             `date_upd` DATETIME NOT NULL,
             PRIMARY KEY (`id`)
-        ) ENGINE="._MYSQL_ENGINE_." DEFAULT CHARSET=utf8;";
+        ) ENGINE="._MYSQL_ENGINE_." DEFAULT CHARSET=utf8mb4;";
 
         if (!Db::getInstance()->execute($createSql)) {
             return false;
@@ -417,6 +417,12 @@ class Dnapayments extends PaymentModule
                             $result = $dnaPayment->charge($data);
                         } catch (Exception $e) {
                             PrestaShopLogger::addLog($e->getMessage(), 3);
+                            echo json_encode([
+                                'errors' => [
+                                    'Ooops, something went wrong! Please try again later.'
+                                ]
+                            ]);
+                            return;
                         }
                     }
                 }
