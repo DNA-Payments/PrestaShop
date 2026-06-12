@@ -48,12 +48,12 @@ class AdminDnaAccountSettingsController extends ModuleAdminController
     {
         $this->fields_form['form']['form'] = array(
             'legend' => array(
-                'title' => $this->module->l('Account settings'),
+                'title' => $this->l('Account settings'),
                 'icon' => 'icon-cogs',
             ),
             'input' => $this->getAccountSettingsFields(),
             'submit' => array(
-                'title' => $this->module->l('Save'),
+                'title' => $this->l('Save'),
                 'class' => 'btn btn-default pull-right button'
             )
         );

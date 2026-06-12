@@ -115,7 +115,7 @@ class DnapaymentsTransaction extends ObjectModel {
         $query = new DbQuery();
 
         $query->select('*')
-            ->from($this->table)
+            ->from($this->def['table'])
             ->where($key . ' = "' . $value . '"')
             ->orderBy('id');
 

@@ -95,10 +95,14 @@ class DnapaymentsHelper {
         $transaction = new DnapaymentsTransaction();
         $transaction->getDnapaymentsTransactionByDnaOrderId($invoiceId);
     
-        $cart_id = $transaction->id_cart;
-        $order_id = $transaction->id_order;
+        $cart_id = (int) $transaction->id_cart;
+        $order_id = (int) $transaction->id_order;
 
-        $has_order = !empty($order_id) && $order_id != 0;
+        if (!$order_id && $cart_id) {
+            $order_id = (int) Order::getIdByCartId($cart_id);
+        }
+
+        $has_order = $order_id > 0;
 
         /** Check if currency is valid */
         $id_currency = (int)Currency::getIdByIsoCode($currency);
@@ -134,31 +138,44 @@ class DnapaymentsHelper {
             }
             Context::getContext()->cart = $cart;
 
-            /** Check if customer is valid */
-            $id_customer = $cart->id_customer;
-            $customer = new Customer($id_customer);
-            if (!Validate::isLoadedObject($customer)) {
-                throw new Error('Customer is not loaded');
-            }
-            Context::getContext()->customer = $customer;
-            
-            if ($this->module->validateOrder(
-                $cart_id,
-                $status_id,
-                $amount,
-                $this->module->displayName,
-                '',
-                null,
-                $id_currency,
-                false,
-                $customer->secure_key
-            )) {
-                $order = Order::getByCartId($cart_id);
-                $transaction->id_cart = $cart_id;
-                $transaction->id_customer = $cart->id_customer;
-                $transaction->id_order = $order->id;
+            if ($cart->orderExists()) {
+                $order_id = (int) Order::getIdByCartId($cart_id);
+                $transaction->id_order = $order_id;
+                $order = new Order($order_id);
+
+                if (!Validate::isLoadedObject($order)) {
+                    throw new Error('Order is not loaded. Order id: ' . $order_id);
+                }
+
+                $order->setCurrentState($status_id);
             } else {
-                throw new Error('Order is not validated. Cart id: ' . $cart_id . ', status: ' . $status_id . ', id_currency: ' . $id_currency);
+
+                /** Check if customer is valid */
+                $id_customer = $cart->id_customer;
+                $customer = new Customer($id_customer);
+                if (!Validate::isLoadedObject($customer)) {
+                    throw new Error('Customer is not loaded');
+                }
+                Context::getContext()->customer = $customer;
+
+                if ($this->module->validateOrder(
+                    $cart_id,
+                    $status_id,
+                    $amount,
+                    $this->module->displayName,
+                    '',
+                    null,
+                    $id_currency,
+                    false,
+                    $customer->secure_key
+                )) {
+                    $order = Order::getByCartId($cart_id);
+                    $transaction->id_cart = $cart_id;
+                    $transaction->id_customer = $cart->id_customer;
+                    $transaction->id_order = $order->id;
+                } else {
+                    throw new Error('Order is not validated. Cart id: ' . $cart_id . ', status: ' . $status_id . ', id_currency: ' . $id_currency);
+                }
             }
         }
 
@@ -180,9 +197,9 @@ class DnapaymentsHelper {
                 'UPDATE `'._DB_PREFIX_.'order_payment`
                 SET `order_reference` = "'.pSQL($order->reference).'",
                     `transaction_id` = "'.pSQL($transaction_id).'",
-                    `card_number` = "'.($this->getInputValue($input, 'cardPanStarred') ?? '').'",
-                    `card_expiration` = "'.($this->getInputValue($input, 'cardExpiryDate') ?? '').'",
-                    `card_brand` = "'.($this->getInputValue($input, 'cardSchemeName') ?? '').'"
+                    `card_number` = "'.pSQL((string)($this->getInputValue($input, 'cardPanStarred') ?? '')).'",
+                    `card_expiration` = "'.pSQL((string)($this->getInputValue($input, 'cardExpiryDate') ?? '')).'",
+                    `card_brand` = "'.pSQL((string)($this->getInputValue($input, 'cardSchemeName') ?? '')).'"
                 WHERE  `id_order_payment` = '.$id_order_payment
             );
         }
@@ -217,12 +234,6 @@ class DnapaymentsHelper {
         }
         catch (\Exception $e) {
             PrestaShopLogger::addLog($e->getMessage(), 3);
-            echo json_encode([
-                'errors' => [
-                    'Ooops, something went wrong! Please try again later.'
-                ]
-            ]);
-            return;
         }
     }
 
@@ -286,7 +297,7 @@ class DnapaymentsHelper {
     }
 
     public function getFailureBackLink() {
-        return Configuration::get('DNA_PAYMENT_FAILURE_BACK_LINK') ? $this->getBaseUrl().Configuration::get('DNA_PAYMENT_FAILURE_BACK_LINK') : Context::getContext()->link->getModuleLink($this->module->name, 'orderFailureResult');
+        return Configuration::get('DNA_PAYMENT_FAILURE_BACK_LINK') ? $this->module->getBaseUrl().Configuration::get('DNA_PAYMENT_FAILURE_BACK_LINK') : Context::getContext()->link->getPageLink('order', true);
     }
 
     public function getOrderConfirmationLink($cart, $order_id)
