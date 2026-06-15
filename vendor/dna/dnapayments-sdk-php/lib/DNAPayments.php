@@ -12,10 +12,6 @@ class DNAPayments {
         self::configure($config);
     }
 
-    private static $config = [
-        'isTestMode' => false,
-        'scopes' => []
-    ];
     private static $fields = [
         'authUrl' => 'https://oauth.dnapayments.com/oauth2/token',
         'testAuthUrl' => 'https://test-oauth.dnapayments.com/oauth2/token',
@@ -25,14 +21,25 @@ class DNAPayments {
         'apiUrl' => 'https://api.dnapayments.com'
     ];
 
+    private static $config = [
+        'isTestMode' => false,
+        'scopes' => [],
+        'isEnableDonation' => null, // boolean
+        'autoRedirectDelayInMs' => null, // int
+        'paymentTimeoutInSeconds' => null, // int
+        'allowSavingCards' => null, // boolean
+        'cards' => null, // array of objects
+        'disabledCardSchemes' => null, // array of objects,
+        'locale' => null // object
+    ];
 
-    private static function configure($config) {
+    public static function configure($config) {
         if(empty($config)) return;
-        if(array_key_exists('isTestMode', $config)) {
-            self::$config['isTestMode'] = $config['isTestMode'];
-        }
-        if(array_key_exists('scopes', $config)) {
-            self::$config['scopes'] = $config['scopes'];
+
+        foreach ($config as $key => $value) {
+            if (array_key_exists($key, self::$config)) {
+                self::$config[$key] = $value;
+            }
         }
     }
 
@@ -65,45 +72,42 @@ class DNAPayments {
         );
     }
 
-    private function authApi($data) {
-        try {
-            $authData = [
-                'grant_type' => 'client_credentials',
-                'scope' => 'webapi',
-                'client_id' => $data['client_id'],
-                'client_secret' => $data['client_secret'],
-                'terminal' => $data['terminal'],
-                'invoiceId' => strval($data['invoiceId']),
-                'amount' => floatval($data['amount']),
-                'currency' => strval($data['currency'])
-            ];
+    public function authApi($data) {
+        $authData = [
+            'grant_type' => 'client_credentials',
+            'scope' => 'webapi',
+            'client_id' => $data['client_id'],
+            'client_secret' => $data['client_secret']
+        ];
 
-            $response = HTTPRequester::HTTPPost(self::getPath()->authUrl, [], $authData);
-            if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
-                return $response['response'];
+        $optional_fields = [ 'terminal', 'invoiceId', 'amount', 'currency' ];
+
+        foreach ($optional_fields as $key) {
+            if ( array_key_exists( $key, $data ) ) {
+                $func = $key == 'amount' ? 'floatval' : 'strval';
+                $authData[ $key ] = call_user_func( $func, $data[ $key] );
             }
-
-            throw new RequestException($response);
-        } catch (Exception $e) {
-            throw $e;
         }
+
+        $response = HTTPRequester::HTTPPost(self::getPath()->authUrl, [], $authData);
+        if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
+            return $response['response'];
+        }
+
+        throw new RequestException($response);
     }
 
-    private function refundRequest($token, $transaction_id, $amount) {
-        try {
-            $refundData = [
-                'id' => $transaction_id,
-                'amount' => floatval($amount)
-            ];
-            $response = HTTPRequester::HTTPPost(self::getPath()->apiUrl . '/transaction/operation/refund', $this->getJSONHeader($token), json_encode($refundData));
+    public function refundRequest($token, $transaction_id, $amount) {
+        $refundData = [
+            'id' => $transaction_id,
+            'amount' => floatval($amount)
+        ];
+        $response = HTTPRequester::HTTPPost(self::getPath()->apiUrl . '/transaction/operation/refund', $this->getJSONHeader($token), $refundData);
 
-            if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
-                return $response['response'];
-            }
-            throw new RequestException($response);
-        } catch (Exception $e) {
-            throw $e;
+        if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
+            return $response['response'];
         }
+        throw new RequestException($response, 'errorCode');
     }
 
 
@@ -112,19 +116,15 @@ class DNAPayments {
         return self::refundRequest($auth['access_token'], $data['transaction_id'], $data['amount']);
     }
 
-    private function cancelRequest($token, $transaction_id) {
-        try {
-            $response = HTTPRequester::HTTPPost(self::getPath()->apiUrl . '/transaction/operation/cancel', $this->getJSONHeader($token), json_encode([
-                'id' => $transaction_id
-            ]));
+    public function cancelRequest($token, $transaction_id) {
+        $response = HTTPRequester::HTTPPost(self::getPath()->apiUrl . '/transaction/operation/cancel', $this->getJSONHeader($token), [
+            'id' => $transaction_id
+        ]);
 
-            if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
-                return $response['response'];
-            }
-            throw new RequestException($response);
-        } catch (Exception $e) {
-            throw $e;
+        if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
+            return $response['response'];
         }
+        throw new RequestException($response, 'errorCode');
     }
 
     public function cancel($data) {
@@ -132,21 +132,17 @@ class DNAPayments {
         return self::cancelRequest($auth['access_token'], $data['transaction_id']);
     }
 
-    private function chargeRequest($token, $transaction_id, $amount) {
-        try {
-            $chargeData = [
-                'id' => $transaction_id,
-                'amount' => floatval($amount)
-            ];
-            $response = HTTPRequester::HTTPPost(self::getPath()->apiUrl . '/transaction/operation/charge', $this->getJSONHeader($token), json_encode($chargeData));
+    public function chargeRequest($token, $transaction_id, $amount) {
+        $chargeData = [
+            'id' => $transaction_id,
+            'amount' => floatval($amount)
+        ];
+        $response = HTTPRequester::HTTPPost(self::getPath()->apiUrl . '/transaction/operation/charge', $this->getJSONHeader($token), $chargeData);
 
-            if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
-                return $response['response'];
-            }
-            throw new RequestException($response);
-        } catch (Exception $e) {
-            throw $e;
+        if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
+            return $response['response'];
         }
+        throw new RequestException($response, 'errorCode');
     }
 
     public function charge($data) {
@@ -154,29 +150,105 @@ class DNAPayments {
         return self::chargeRequest($auth['access_token'], $data['transaction_id'], $data['amount']);
     }
 
-    public static function auth($data) {
-        try {
-            $authData = [
-                'grant_type' => 'client_credentials',
-                'scope' => Scope::getScopes(self::$config['scopes']),
-                'client_id' => $data['client_id'],
-                'client_secret' => $data['client_secret'],
-                'terminal' => $data['terminal'],
-                'invoiceId' => strval($data['invoiceId']),
-                'amount' => floatval($data['amount']),
-                'currency' => strval($data['currency']),
-                'paymentFormURL' => array_key_exists('paymentFormURL', $data) ? $data['paymentFormURL'] : self::getPath()->paymentUrl . '/checkout/' // todo: add
-            ];
+    /**
+     * Process a recurring transaction request
+     * @param string $token Access token
+     * @param string $parent_transaction_id Parent transaction ID
+     * @param string $transaction_type Transaction type (e.g., 'AUTH')
+     * @param float $amount Transaction amount
+     * @param string $invoice_id Invoice ID
+     * @param string $sequence_type Sequence type (default: 'recurring')
+     * @param string $periodic_type Periodic type (default: 'ucof')
+     * @return array Response data
+     * @throws RequestException
+     */
+    public function recurringRequest($token, $parent_transaction_id, $transaction_type, $amount, $invoice_id, $sequence_type = 'recurring', $periodic_type = 'ucof') {
+        $recurringData = [
+            'parentTransactionId' => $parent_transaction_id,
+            'transactionType' => $transaction_type,
+            'amount' => floatval($amount),
+            'sequenceType' => $sequence_type,
+            'periodicType' => $periodic_type,
+            'invoiceId' => strval($invoice_id)
+        ];
+        $response = HTTPRequester::HTTPPost(self::getPath()->apiUrl . '/transaction/operation/recurring', $this->getJSONHeader($token), $recurringData);
 
-            $response = HTTPRequester::HTTPPost(self::getPath()->authUrl, [], $authData);
-            if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
-                return $response['response'];
-            }
-            throw new RequestException($response);
-
-        } catch (Exception $e) {
-            throw $e;
+        if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
+            return $response['response'];
         }
+        throw new RequestException($response, 'errorCode');
+    }
+
+    /**
+     * Process a recurring transaction
+     * @param array $data Transaction data containing client credentials and transaction details
+     * @return array Response data
+     */
+    public function recurring($data) {
+        $auth = self::authApi($data);
+        $sequence_type = isset($data['sequenceType']) ? $data['sequenceType'] : 'recurring';
+        $periodic_type = isset($data['periodicType']) ? $data['periodicType'] : 'ucof';
+        
+        return self::recurringRequest(
+            $auth['access_token'], 
+            $data['parentTransactionId'], 
+            $data['transactionType'], 
+            $data['amount'], 
+            $data['invoiceId'],
+            $sequence_type,
+            $periodic_type
+        );
+    }
+
+    public function get_client_token($client_id, $client_secret) {
+        return self::authApi([
+            'client_id' => $client_id,
+            'client_secret' => $client_secret
+        ]);
+    }
+
+    public function get_transactions_by_field($client_token, $field_value, $field_name = null) {
+        $url = self::getPath()->apiUrl . '/v2/transactions/' . $field_value . '/list';
+
+        if ($field_name) {
+            $url .= '?field=' . $field_name;
+        }
+
+        $response = HTTPRequester::HTTPGet($url, $this->getJSONHeader($client_token));
+
+        if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
+            return $response['response'];
+        }
+        throw new RequestException($response, 'errorCode');
+
+    }
+
+    public function get_transactions_by_id($client_token, $transaction_id) {
+        return self::get_transactions_by_field($client_token, $transaction_id);
+    }
+
+    public function get_transactions_by_invoice_id($client_token, $invoice_id) {
+        return self::get_transactions_by_field($client_token, $invoice_id, 'invoiceId');
+    }
+
+    public static function auth($data) {
+        $authData = [
+            'grant_type' => 'client_credentials',
+            'scope' => Scope::getScopes(self::$config['scopes']),
+            'client_id' => $data['client_id'],
+            'client_secret' => $data['client_secret'],
+            'terminal' => $data['terminal'],
+            'invoiceId' => strval($data['invoiceId']),
+            'amount' => floatval($data['amount']),
+            'currency' => strval($data['currency']),
+            'paymentFormURL' => array_key_exists('paymentFormURL', $data) ? $data['paymentFormURL'] : self::getPath()->paymentUrl . '/checkout/' // todo: add
+        ];
+
+        $response = HTTPRequester::HTTPPost(self::getPath()->authUrl, [], $authData);
+        if ($response != null && $response['status'] >= 200 && $response['status'] < 400) {
+            return $response['response'];
+        }
+        throw new RequestException($response);
     }
 
     public static function getBaseUrl() {
@@ -188,15 +260,23 @@ class DNAPayments {
         );
     }
 
-    public static function generateUrl($order, $authToken)
+    public static function generateUrl($payment_data, $auth_token)
     {
-
         $payload = array(
-            'auth' => $authToken
+            'auth' => $auth_token
         );
-        return self::getPath()->paymentUrl . '/checkout/?params='. self::encodeToUrl((object) array_merge($payload, $order)) . '&data=' . self::encodeToUrl((object) [
-                'isTest' => self::$config['isTestMode']
-            ]);
+
+        $params_str = self::encodeToUrl((object) array_merge($payload, $payment_data));
+
+        $filled_configs = [];
+
+        foreach (self::$config as $key => $value) {
+            if (!is_null($value)) {
+                $filled_configs[$key] = $value;
+            }
+        }
+
+        return self::getPath()->paymentUrl . '/checkout/?params=' . $params_str . '&data=' . self::encodeToUrl((object) $filled_configs);
     }
 
     public static function isValidSignature($result, $secret)

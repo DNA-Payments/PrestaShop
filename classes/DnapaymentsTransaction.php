@@ -1,7 +1,7 @@
 <?php
 
 class DnapaymentsTransaction extends ObjectModel {
-    
+
     public $status;
     public $id_customer;
     public $id_cart;
@@ -115,7 +115,7 @@ class DnapaymentsTransaction extends ObjectModel {
         $query = new DbQuery();
 
         $query->select('*')
-            ->from($this->table)
+            ->from($this->def['table'])
             ->where($key . ' = "' . $value . '"')
             ->orderBy('id');
 

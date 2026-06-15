@@ -5,7 +5,7 @@ ini_set('display_errors', 'Off');
 
 define('DNA_PAYMENT_METHOD_CODE', 'dnapayments');
 define('DNA_ROOT_URL', dirname(__FILE__));
-define('DNA_VERSION', '1.4.2');
+define('DNA_VERSION', '1.6.0');
 define('DNA_ORDER_PREFIX', 'PS_');
 
 require_once DNA_ROOT_URL.'/vendor/autoload.php';
@@ -13,6 +13,7 @@ require_once DNA_ROOT_URL.'/includes/ConfigStore.php';
 require_once DNA_ROOT_URL.'/classes/DnapaymentsTransaction.php';
 require_once DNA_ROOT_URL.'/classes/DnapaymentsAccountCard.php';
 require_once DNA_ROOT_URL.'/classes/DnapaymentsHelper.php';
+require_once DNA_ROOT_URL.'/classes/DnapaymentsPaymentBuilder.php';
 
 if (!defined('_PS_VERSION_')) {
     exit;
@@ -25,6 +26,9 @@ class Dnapayments extends PaymentModule
     /** @var DnapaymentsHelper */
     public $helper;
 
+    /** @var string */
+    public $module_link;
+
     public function __construct()
     {
         $this->helper = DnapaymentsHelper::getInstance($this);
@@ -32,9 +36,9 @@ class Dnapayments extends PaymentModule
         $this->name = DNA_PAYMENT_METHOD_CODE;
         $this->tab = 'payments_gateways';
         $this->version = DNA_VERSION;
-        $this->ps_versions_compliancy = array('min' => '1.6', 'max' => _PS_VERSION_);
+        $this->ps_versions_compliancy = ['min' => '8.1.0.0', 'max' => '9.99.99'];
         $this->author = 'DNA Payments';
-        $this->controllers = array( 'order', 'confirm', 'orderFailureResult');
+        $this->controllers = array( 'order', 'confirm', 'redirect', 'return', 'orderFailureResult');
         $this->need_instance = 1;
         $this->currencies = true;
         $this->currencies_mode = 'checkbox';
@@ -159,7 +163,7 @@ class Dnapayments extends PaymentModule
         try {
             $isPhpVersionCompliant = $installer->checkPhpVersion();
         } catch (\Exception $e) {
-            $this->_errors[] = Tools::displayError($e->getMessage());
+            $this->_errors[] = $e->getMessage();
         }
 
         if (($isPhpVersionCompliant && parent::install() && $installer->install()) == false) {
@@ -201,8 +205,9 @@ class Dnapayments extends PaymentModule
             `currency` varchar(8) NOT NULL,
             `date_add` DATETIME NOT NULL,
             `date_upd` DATETIME NOT NULL,
-            PRIMARY KEY (`id`)
-        ) ENGINE="._MYSQL_ENGINE_." DEFAULT CHARSET=utf8;";
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `uniq_id_cart` (`id_cart`)
+        ) ENGINE="._MYSQL_ENGINE_." DEFAULT CHARSET=utf8mb4;";
 
         if (!Db::getInstance()->execute($createSql)) {
             return false;
@@ -245,7 +250,7 @@ class Dnapayments extends PaymentModule
             `date_add` DATETIME NOT NULL,
             `date_upd` DATETIME NOT NULL,
             PRIMARY KEY (`id`)
-        ) ENGINE="._MYSQL_ENGINE_." DEFAULT CHARSET=utf8;";
+        ) ENGINE="._MYSQL_ENGINE_." DEFAULT CHARSET=utf8mb4;";
 
         if (!Db::getInstance()->execute($createSql)) {
             return false;
@@ -273,7 +278,7 @@ class Dnapayments extends PaymentModule
     public function hookActionEmailSendBefore($params) {
         if($params['cart'] && $params['cart']->id) {
             $id = $params['cart']->id;
-            $order = Order::getOrderByCartId((int)($id));
+            $order = Order::getIdByCartId((int)($id));
             $order_details = new Order((int)($order));
 
             if($params['template'] === 'order_conf' && (int)$order_details->current_state === (int)Configuration::get('DNA_OS_AWAITING_PAYMENT')){
@@ -319,10 +324,18 @@ class Dnapayments extends PaymentModule
         $this->context->smarty->assign(array(
             'description' => Configuration::get('DNA_PAYMENT_DESCRIPTION')
         ));
-        $externalOption->setCallToActionText($this->l(Configuration::get('DNA_PAYMENT_TITLE')))
-                       ->setForm($this->generateForm())
+        $externalOption->setModuleName($this->name)
+                       ->setCallToActionText($this->l(Configuration::get('DNA_PAYMENT_TITLE')))
                        ->setAdditionalInformation($this->context->smarty->fetch( DNA_ROOT_URL.'/views/templates/front/payment_infos.tpl'))
                        ->setLogo(Media::getMediaPath(DNA_ROOT_URL.'/logo_small.png'));
+
+        if (Configuration::get('DNA_PAYMENT_INTEGRATION_TYPE') === 'embedded') {
+            $externalOption->setForm($this->generateForm());
+        } else {
+            $externalOption->setAction(
+                $this->context->link->getModuleLink($this->name, 'redirect', array(), true)
+            );
+        }
 
         return $externalOption;
     }
@@ -417,6 +430,7 @@ class Dnapayments extends PaymentModule
                             $result = $dnaPayment->charge($data);
                         } catch (Exception $e) {
                             PrestaShopLogger::addLog($e->getMessage(), 3);
+                            $errorText = sprintf('DNA Payments: payment could not be captured. %s', $e->getMessage());
                         }
                     }
                 }

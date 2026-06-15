@@ -62,7 +62,7 @@ class DnapaymentsAccountCard extends ObjectModel {
         $query = new DbQuery();
 
         $query->select('*')
-            ->from($this->table)
+            ->from($this->def['table'])
             ->where('accountId = "' . $accountId . '" AND cardTokenId = "' . $cardTokenId . '"')
             ->orderBy('id');
 

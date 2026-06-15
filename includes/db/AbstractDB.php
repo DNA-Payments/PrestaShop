@@ -131,7 +131,7 @@ abstract class AbstractDB
      */
     public function create($array)
     {
-        if (gettype($array) == "array") {
+        if (is_array($array)) {
             $attrs  = "";
             $params = "";
 

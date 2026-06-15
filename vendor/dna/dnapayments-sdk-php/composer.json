@@ -3,19 +3,23 @@
     "description": "DNA payments library for php",
     "license": "MIT",
     "type": "library",
-    "version": "1.1.3",
-    "require": {
-        "rmccue/requests": "^1.7"
-    },
+    "version": "2.2.1",
     "authors": [
         {
-            "name": "Alikhan Izbergenov",
-            "email": "alikhan@dnapayments.com"
+            "name": "Nurbol Sarsenbayev",
+            "email": "nurbol@dnapayments.com"
         }
     ],
     "autoload": {
         "psr-4": {
             "DNAPayments\\": "lib/"
         }
+    },
+    "require": {
+        "symfony/deprecation-contracts": "2.5.3",
+        "guzzlehttp/guzzle": "^7.9"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "9.6"
     }
 }

@@ -26,6 +26,10 @@ class ConfigStore {
      * @var bool
      */
     public $should_create_order_after_only_successful_payment = true;
+    /**
+     * @var bool
+     */
+    public $dna_payment_card_vault_enabled = false;
 
     public function __construct()
     {
