@@ -43,13 +43,4 @@ class DnapaymentsConfirmModuleFrontController extends ModuleFrontController
         }
     }
 
-    public function postProcess()
-    {
-        if ($this->context->cart && $this->context->cart->orderExists()) {
-            return;
-        }
-
-        parent::postProcess();
-    }
-
 }
