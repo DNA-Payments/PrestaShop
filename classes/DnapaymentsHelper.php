@@ -42,14 +42,47 @@ class DnapaymentsHelper {
 
     public function validateAndGetStatus($input) {
 
-        if (empty($input['invoiceId'])) throw new Error('Can not find order');
-        
+        if (!is_array($input) || empty($input['invoiceId'])) throw new Error('Can not find order');
+
         if (!\DNAPayments\DNAPayments::isValidSignature($input, $this->configStore->client_secret)) {
             throw new Error('Order data is not valid');
         }
 
         if (!$input['success']) {
             return Configuration::get('PS_OS_ERROR');
+        }
+
+        if (!isset($input['id']) || !is_scalar($input['id']) || (string) $input['id'] === '') {
+            throw new Error('Transaction id is not valid');
+        }
+
+        // Compare with the amount/currency stored when the payment was started
+        // (i.e. exactly what was sent to DNA), not with the live cart total.
+        $transaction = new DnapaymentsTransaction();
+        $transaction->getDnapaymentsTransactionByDnaOrderId((string) $input['invoiceId']);
+        if (!$transaction->isExists()) {
+            throw new Error('Can not find payment transaction');
+        }
+
+        // Compare in minor units (cents) using the currency precision: comparing
+        // floats with a 0.01 threshold lets a 1-cent difference through
+        // (e.g. abs(11.9 - 11.89) = 0.0099999...).
+        $idCurrency = (int) Currency::getIdByIsoCode((string) $transaction->currency);
+        $precision = $idCurrency ? (int) (new Currency($idCurrency))->precision : 2;
+        $factor = 10 ** $precision;
+
+        if (!isset($input['amount'], $input['currency'])
+            || !is_numeric($input['amount'])
+            || (int) round((float) $input['amount'] * $factor) !== (int) round((float) $transaction->amount * $factor)
+            || strtoupper((string) $input['currency']) !== strtoupper((string) $transaction->currency)) {
+            throw new Error(sprintf(
+                'Payment amount or currency does not match the order (invoiceId %s: got %s %s, expected %s %s)',
+                $input['invoiceId'],
+                is_scalar($input['amount'] ?? null) ? $input['amount'] : '?',
+                is_scalar($input['currency'] ?? null) ? $input['currency'] : '?',
+                $transaction->amount,
+                $transaction->currency
+            ));
         }
 
         return $input['settled'] ? Configuration::get('PS_OS_PAYMENT') : Configuration::get('DNA_OS_WAITING_CAPTURE');
