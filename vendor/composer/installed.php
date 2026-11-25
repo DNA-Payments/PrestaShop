@@ -1,8 +1,8 @@
 <?php return array(
     'root' => array(
         'name' => 'dna/prestoshop',
-        'pretty_version' => '1.6.0',
-        'version' => '1.6.0.0',
+        'pretty_version' => '1.6.1',
+        'version' => '1.6.1.0',
         'reference' => null,
         'type' => 'prestashop-module',
         'install_path' => __DIR__ . '/../../',
@@ -11,17 +11,17 @@
     ),
     'versions' => array(
         'dna/dnapayments-sdk-php' => array(
-            'pretty_version' => '2.2.1',
-            'version' => '2.2.1.0',
-            'reference' => 'e83cf58ad079af496ffbe58087be456673b4b5f2',
+            'pretty_version' => '2.2.2',
+            'version' => '2.2.2.0',
+            'reference' => '3218fbabb55c331cd75e17e8ed9081a905845a94',
             'type' => 'library',
             'install_path' => __DIR__ . '/../dna/dnapayments-sdk-php',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
         'dna/prestoshop' => array(
-            'pretty_version' => '1.6.0',
-            'version' => '1.6.0.0',
+            'pretty_version' => '1.6.1',
+            'version' => '1.6.1.0',
             'reference' => null,
             'type' => 'prestashop-module',
             'install_path' => __DIR__ . '/../../',

@@ -116,7 +116,7 @@ class DnapaymentsTransaction extends ObjectModel {
 
         $query->select('*')
             ->from($this->def['table'])
-            ->where($key . ' = "' . $value . '"')
+            ->where($key . ' = "' . pSQL((string) $value) . '"')
             ->orderBy('id');
 
         $result = Db::getInstance()->getRow($query->build());

@@ -1,12 +1,12 @@
 {
     "name": "dna/prestoshop",
-    "version": "1.6.0",
+    "version": "1.6.1",
     "description": "PrestaShop module for DNA payment",
     "homepage": "https://dnapayments.com/",
     "license": "AFL-3.0",
     "require": {
         "php": ">=7.2.5 <8.6",
-        "dna/dnapayments-sdk-php": "2.2.1"
+        "dna/dnapayments-sdk-php": "2.2.2"
     },
     "config": {
         "preferred-install": "dist"
