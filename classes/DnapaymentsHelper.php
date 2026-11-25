@@ -52,6 +52,29 @@ class DnapaymentsHelper {
             return Configuration::get('PS_OS_ERROR');
         }
 
+        if (!isset($input['id']) || !is_scalar($input['id'])) {
+            throw new Error('Transaction id is not valid');
+        }
+
+        $transaction = new DnapaymentsTransaction();
+        $transaction->getDnapaymentsTransactionByDnaOrderId($input['invoiceId']);
+        if (!$transaction->isExists()) {
+            throw new Error('Can not find payment transaction');
+        }
+
+        $order = $transaction->id_order ? new Order($transaction->id_order) : new Cart($transaction->id_cart);
+        if (!Validate::isLoadedObject($order)) {
+            throw new Error('Can not find order or cart');
+        }
+        $currency = new Currency($order->id_currency);
+        $amount = $transaction->id_order ? $order->total_paid_tax_incl : $order->getOrderTotal();
+        if (!isset($input['amount'], $input['currency']) || !is_numeric($input['amount'])
+            || !is_finite((float) $input['amount'])
+            || round((float) $input['amount'], 2) !== round((float) $amount, 2)
+            || $input['currency'] !== $currency->iso_code) {
+            throw new Error('Payment amount or currency does not match the order');
+        }
+
         return $input['settled'] ? Configuration::get('PS_OS_PAYMENT') : Configuration::get('DNA_OS_WAITING_CAPTURE');
     }
 
@@ -141,7 +164,7 @@ class DnapaymentsHelper {
                 throw new Error('Customer is not loaded');
             }
             Context::getContext()->customer = $customer;
-            
+
             if ($this->module->validateOrder(
                 $cart_id,
                 $status_id,
@@ -179,10 +202,10 @@ class DnapaymentsHelper {
             Db::getInstance()->execute(
                 'UPDATE `'._DB_PREFIX_.'order_payment`
                 SET `order_reference` = "'.pSQL($order->reference).'",
-                    `transaction_id` = "'.$transaction_id.'",
-                    `card_number` = "'.($this->getInputValue($input, 'cardPanStarred') ?? '').'",
-                    `card_expiration` = "'.($this->getInputValue($input, 'cardExpiryDate') ?? '').'",
-                    `card_brand` = "'.($this->getInputValue($input, 'cardSchemeName') ?? '').'"
+                    `transaction_id` = "'.pSQL($transaction_id).'",
+                    `card_number` = "'.pSQL($this->getInputValue($input, 'cardPanStarred') ?? '').'",
+                    `card_expiration` = "'.pSQL($this->getInputValue($input, 'cardExpiryDate') ?? '').'",
+                    `card_brand` = "'.pSQL($this->getInputValue($input, 'cardSchemeName') ?? '').'"
                 WHERE  `id_order_payment` = '.$id_order_payment
             );
         }
