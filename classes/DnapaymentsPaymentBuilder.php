@@ -270,7 +270,7 @@ class DnapaymentsPaymentBuilder
             );
 
             $orderLines[] = [
-                'reference' => $product['id_product'],
+                'reference' => (string) $product['id_product'],
                 'name' => $product['name'],
                 'quantity' => $product['quantity'],
                 'unitPrice' => $product['price'],
