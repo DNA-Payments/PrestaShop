@@ -5,7 +5,7 @@ ini_set('display_errors', 'Off');
 
 define('DNA_PAYMENT_METHOD_CODE', 'dnapayments');
 define('DNA_ROOT_URL', dirname(__FILE__));
-define('DNA_VERSION', '1.6.1');
+define('DNA_VERSION', '1.6.2');
 define('DNA_ORDER_PREFIX', 'PS_');
 
 require_once DNA_ROOT_URL.'/vendor/autoload.php';
@@ -14,6 +14,7 @@ require_once DNA_ROOT_URL.'/classes/DnapaymentsTransaction.php';
 require_once DNA_ROOT_URL.'/classes/DnapaymentsAccountCard.php';
 require_once DNA_ROOT_URL.'/classes/DnapaymentsHelper.php';
 require_once DNA_ROOT_URL.'/classes/DnapaymentsPaymentBuilder.php';
+require_once DNA_ROOT_URL.'/classes/DnapaymentsAnalytics.php';
 
 if (!defined('_PS_VERSION_')) {
     exit;

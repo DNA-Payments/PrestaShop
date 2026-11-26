@@ -9,6 +9,8 @@ class DnapaymentsConfirmModuleFrontController extends ModuleFrontController
 
         header('Content-Type: application/json');
 
+        (new DnapaymentsAnalytics($this->module->helper))->sendAnalytics();
+
         try {
             $helper = $this->module->helper;
             $input = json_decode(file_get_contents('php://input'), true);
