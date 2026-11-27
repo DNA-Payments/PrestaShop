@@ -121,7 +121,7 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
                 'customerDetails' => array(
                     'email' => $customer->email,
                     'accountDetails' => array(
-                        'accountId' => $cart->id_customer ? $cart->id_customer : '',
+                        'accountId' => $cart->id_customer ? (string) $cart->id_customer : '',
                     ),
                     'billingAddress' => $this->getAddress($billingAddress),
                     'deliveryDetails' => array(
@@ -189,7 +189,7 @@ class DnapaymentsOrderModuleFrontController extends ModuleFrontController
             );
 
             $orderLines[] = [
-                'reference' => $product['id_product'],
+                'reference' => (string) $product['id_product'],
                 'name' => $product['name'],
                 'quantity' => $product['quantity'],
                 'unitPrice' => $product['price'],
