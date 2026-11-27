@@ -7,6 +7,8 @@ class DnapaymentsConfirmModuleFrontController extends ModuleFrontController
     {
         parent::init();
 
+        (new DnapaymentsAnalytics($this->module->helper))->sendAnalytics();
+
         $helper = $this->module->helper;
         $input = json_decode(file_get_contents('php://input'), true);
         $status_id = $helper->validateAndGetStatus($input);
